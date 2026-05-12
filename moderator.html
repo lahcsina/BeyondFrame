@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Moderator Panel - BeyondFrame</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="brand"><h1>Content Moderator</h1></div>
+        <nav><a href="index.html">Home</a></nav>
+    </header>
+    <main class="gallery-section">
+        <h2>Review All Posts</h2>
+        <div class="search-row" style="margin-bottom: 2rem;">
+            <input id="mod-search" type="search" placeholder="Search by title or author..." style="width: 100%;" />
+        </div>
+        <div id="mod-grid" class="gallery-grid"></div>
+    </main>
+    <script src="js/script.js"></script>
+    <script>
+        let allModPosts = [];
+
+        async function loadAllPosts() {
+            allModPosts = await getAllPosts();
+            renderModPosts(allModPosts);
+        }
+
+        function renderModPosts(posts) {
+            const grid = document.getElementById('mod-grid');
+            grid.innerHTML = '';
+            
+            posts.forEach(p => {
+                const card = document.createElement('article');
+                card.className = 'photo-card';
+                
+                let images = p.imageData;
+                if (typeof images === 'string') {
+                    try {
+                        const parsed = JSON.parse(images);
+                        images = Array.isArray(parsed) ? parsed : [parsed];
+                    } catch(e) { images = [images]; }
+                }
+                if (!Array.isArray(images)) images = [images];
+
+                const initialSrc = window.resolveImgUrl(images[0]);
+
+                card.innerHTML = `
+                    <img alt="${window.escapeHTML(p.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiM0NDQiLz48Y2lyY2xlIGN4PSIxMDAiIGN5PSI3MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzk5OSIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHBhdGggZD0iTTEwMCAxMDBsMzAgMzAgLTMwIDMwIC0zMCAtMzAgMzAgLTMwWiIgZmlsbD0iIzk5OSIvPjxwYXRoIGQ9Ik01MCAxNTBoMTAwIiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+'"/>
+                    <div class="photo-details">
+                        <h3>${window.escapeHTML(p.title)}</h3>
+                        <p>By ${window.escapeHTML(p.author)}</p>
+                        <button class="button" style="background:#ff4d4d; width:100%" onclick="modDeletePost('${p.id}')">Remove Content</button>
+                    </div>
+                `;
+
+                const imgEl = card.querySelector('img');
+                imgEl.src = initialSrc; // Safe property assignment
+                
+                grid.appendChild(card);
+            });
+        }
+
+        document.getElementById('mod-search').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = allModPosts.filter(p => 
+                p.title.toLowerCase().includes(query) || 
+                p.author.toLowerCase().includes(query)
+            );
+            renderModPosts(filtered);
+        });
+
+        async function modDeletePost(id) {
+            if (!confirm('Remove this post for violating community standards?')) return;
+            const res = await fetch(`${API_URL}/posts/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('bf_token')}` }
+            });
+            if (res.ok) {
+                showToast('Post removed', 'info');
+                loadAllPosts();
+            }
+        }
+
+        window.onload = () => {
+            const token = localStorage.getItem('bf_token');
+            const payload = parseJwt(token);
+            if (!payload || (payload.role !== 'moderator' && payload.role !== 'admin')) {
+                window.location.href = 'index.html';
+            } else {
+                loadAllPosts();
+            }
+        };
+    </script>
+</body>
+</html>

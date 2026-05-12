@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in - BeyondFrame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;600;800&family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="camera-logo.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="manifest" href="json/manifest.json" />
+</head>
+<body class="auth-page-container">
+  <header class="site-header">
+    <div class="brand">
+      <h1><img src="camera-logo.svg" alt="Camera" class="header-logo" /> BeyondFrame</h1>
+      <p>Sign in or create an account to share your photos.</p>
+    </div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="Gallery.html">Gallery</a>
+      <a href="submit.html">Submit</a>
+    </nav>
+  </header>
+
+  <main class="auth-container">
+    <section style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+      <!-- Tab Navigation -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Already a member?</button>
+        <button class="auth-tab" data-tab="signup">New? Sign Up</button>
+      </div>
+
+      <div class="auth-forms">
+        <!-- LOGIN FORM -->
+        <div id="login" class="auth-form-section active">
+          <div class="auth-card">
+            <h2>Welcome back</h2>
+            <p>Log in to your account.</p>
+            <form id="login-form">
+              <div class="form-group">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" placeholder="your@email.com" required />
+              </div>
+              <div class="form-group">
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" placeholder="Enter your password" required />
+              </div>
+              <button type="submit" class="auth-button">Log In</button>
+              <p id="login-status" class="auth-status hidden"></p>
+              <p class="form-footer">
+                Forgot password? <a href="forgot-password.html">Reset it</a>
+              </p>
+            </form>
+          </div>
+        </div>
+
+        <!-- SIGNUP FORM -->
+        <div id="signup" class="auth-form-section">
+          <div class="auth-card">
+            <h2>Create an account</h2>
+            <p>Fill in your details to get started.</p>
+
+            <form id="signup-form">
+              <div class="form-group">
+                <label for="signup-username">Username</label>
+                <input type="text" id="signup-username" placeholder="Choose a username" required />
+              </div>
+              <div class="form-group">
+                <label for="signup-email">Email</label>
+                <input type="email" id="signup-email" placeholder="your@email.com" required />
+              </div>
+              <div class="form-group">
+                <label for="signup-password">Password</label>
+                <input type="password" id="signup-password" placeholder="At least 8 characters" required minlength="8" />
+              </div>
+              <div class="form-group">
+                <label for="signup-confirm-password">Confirm Password</label>
+                <input type="password" id="signup-confirm-password" placeholder="Confirm your password" required />
+              </div>
+              <div class="form-group">
+                <label for="signup-gender">Sex</label>
+                <select id="signup-gender" required>
+                  <option value="" disabled selected>Select your sex</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="signup-about">About yourself</label>
+                <textarea id="signup-about" rows="4" placeholder="Tell us about your photography journey" required></textarea>
+              </div>
+              <button type="submit" class="auth-button">Sign Up</button>
+              <p id="signup-status" class="auth-status hidden"></p>
+            </form>
+
+            <!-- Email Verification Section -->
+            <div id="verification-section" class="hidden" style="margin-top: 2rem;">
+              <h3>Verify Your Email</h3>
+              <p>A 6-digit code has been sent to your email. Please enter it below.</p>
+              <form id="verification-form">
+                <div class="form-group">
+                  <label for="verification-code">Verification Code</label>
+                  <input type="text" id="verification-code" placeholder="Enter 6-digit code" required maxlength="6" pattern="[0-9]{6}" />
+                </div>
+                <button type="submit" class="auth-button">Verify Account</button>
+                <p class="form-footer">
+                  Didn't receive the code? <a href="#" id="resend-code-link">Resend Code</a>
+                </p>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 BeyondFrame. Capture moments, share scenes.</p>
+  </footer>
+
+  <script src="js/script.js"></script>
+  <script>
+    const tabs = document.querySelectorAll('.auth-tab');
+    const sections = document.querySelectorAll('.auth-form-section');
+    const signupForm = document.getElementById('signup-form');
+    const verificationSection = document.getElementById('verification-section');
+    const verificationForm = document.getElementById('verification-form');
+    const resendCodeLink = document.getElementById('resend-code-link');
+
+    let pendingSignupData = {}; // Temporarily store signup data
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+        tabs.forEach(t => t.classList.remove('active'));
+        sections.forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(target).classList.add('active');
+      });
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      openDatabase();
+    });
+
+    document.getElementById('signup-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('signup-username').value;
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+      const confirm = document.getElementById('signup-confirm-password').value;
+      const gender = document.getElementById('signup-gender').value;
+      const bio = document.getElementById('signup-about').value;
+
+      if (password !== confirm) {
+        showToast('Passwords do not match', 'error');
+        return;
+      }
+
+      pendingSignupData = { username, email, password, gender, bio };
+
+      try {
+        const res = await fetch(`${API_URL}/auth/send-verification-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(pendingSignupData)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Verification code sent to your email!', 'success');
+          signupForm.classList.add('hidden');
+          verificationSection.classList.remove('hidden');
+          document.getElementById('verification-code').focus();
+        } else {
+          const data = await res.json();
+          showToast(data.error || 'Signup failed', 'error');
+        }
+      } catch (err) { showToast('Server connection failed', 'error'); }
+    };
+
+    verificationForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const verificationCode = document.getElementById('verification-code').value;
+      const email = pendingSignupData.email; // Use email from pending data
+
+      try {
+        const res = await fetch(`${API_URL}/auth/verify-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code: verificationCode })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Account verified and created! Logging in...', 'success');
+          localStorage.setItem('bf_token', data.token);
+          localStorage.setItem('bf_username', data.username);
+          localStorage.setItem('bf_role', data.role);
+          window.location.href = 'index.html';
+        } else {
+          showToast(data.error || 'Email verification failed', 'error');
+        }
+      } catch (err) { showToast('Server connection failed', 'error'); }
+    };
+
+    resendCodeLink.onclick = async (e) => {
+      e.preventDefault();
+      if (!pendingSignupData.email) {
+        showToast('Please complete the signup form first.', 'info');
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/auth/send-verification-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(pendingSignupData)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('New verification code sent!', 'success');
+        } else {
+          showToast(data.error || 'Failed to resend code', 'error');
+        }
+      } catch (err) { showToast('Server connection failed', 'error'); }
+    };
+
+    document.getElementById('login-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      
+      try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.token) {
+          localStorage.setItem('bf_token', data.token);
+          localStorage.setItem('bf_username', data.username);
+          localStorage.setItem('bf_role', data.role);
+          window.location.href = 'index.html';
+        } else {
+          showToast(data.error || 'Invalid email or password', 'error');
+        }
+      } catch (err) { showToast('Server connection failed', 'error'); }
+    };
+  </script>
+  <div id="toast-container"></div>
+</body>
+</html>

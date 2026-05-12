@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gallery - BeyondFrame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;600;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="camera-logo.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <link rel="manifest" href="json/manifest.json" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <h1><img src="camera-logo.svg" alt="Camera" class="header-logo" /> BeyondFrame</h1>
+    </div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="Gallery.html" class="active">Gallery</a>
+      <a href="submit.html">Submit</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="gallery" class="gallery-section">
+      <div class="gallery-tabs">
+        <button id="tab-scenes" class="tab-btn active" onclick="switchTab('scenes')">Your Scenes</button>
+        <button id="tab-collections" class="tab-btn" onclick="switchTab('collections')">Collections</button>
+      </div>
+
+      <div id="scenes-view" class="gallery-view">
+        <p id="view-description">Manage and browse the scenes you've shared.</p>
+        <div class="search-row" style="display: flex; gap: 1rem;">
+          <input id="search-query" type="search" placeholder="Search authors, titles, or descriptions..." style="flex: 2;" />
+          <select id="sort-order" style="flex: 0 0 160px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0.8rem; padding: 0 1rem; cursor: pointer; font-family: inherit; font-size: 0.95rem;">
+            <option value="newest">Newest</option>
+            <option value="most-liked">Most Liked</option>
+          </select>
+        </div>
+        <div id="gallery-grid" class="gallery-grid"></div>
+        <p id="gallery-empty" class="gallery-empty">No photos uploaded yet.</p>
+      </div>
+
+      <div id="collections-view" class="gallery-view hidden" style="opacity: 0; transform: translateY(10px);">
+        <p>Your curated groups and saved favorites.</p>
+        <div id="collections-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 BeyondFrame. Capture moments, share scenes.</p>
+  </footer>
+
+  <script src="js/script.js"></script>
+  <script>
+    const searchQuery = document.getElementById('search-query');
+    const galleryGrid = document.getElementById('gallery-grid');
+    const galleryEmpty = document.getElementById('gallery-empty');
+    const collectionsGrid = document.getElementById('collections-grid');
+    let collectionSortOrder = 'manual'; // Default for collections
+    let currentTab = 'scenes'; // Default to 'Your Scenes'
+    window.collectionSearchQuery = '';
+    window.allPostsCache = [];
+    let activeCollectionName = null;
+
+    async function switchTab(type) {
+      currentTab = type;
+      const scenesView = document.getElementById('scenes-view');
+      const collectionsView = document.getElementById('collections-view');
+      const scenesTab = document.getElementById('tab-scenes');
+      const collectionsTab = document.getElementById('tab-collections');
+      const viewDesc = document.getElementById('view-description');
+
+      activeCollectionName = null; // Reset view when switching tabs
+      window.collectionSearchQuery = '';
+
+      // Begin fade out and slight slide down
+      [scenesView, collectionsView].forEach(v => {
+        v.style.opacity = '0';
+        v.style.transform = 'translateY(10px)';
+      });
+
+      setTimeout(async () => { // Delay for animation
+        if (type === 'scenes') {
+          scenesView.classList.remove('hidden');
+          collectionsView.classList.add('hidden');
+          scenesTab.classList.toggle('active', type === 'scenes');
+          collectionsTab.classList.remove('active');
+          
+          viewDesc.textContent = "Manage and browse the scenes you've shared.";
+          searchPosts();
+
+          void scenesView.offsetWidth; 
+          scenesView.style.opacity = '1';
+          scenesView.style.transform = 'translateY(0)';
+        } else {
+          scenesView.classList.add('hidden');
+          collectionsView.classList.remove('hidden');
+          scenesTab.classList.remove('active');
+          collectionsTab.classList.add('active');
+          await renderCollections();
+          
+          void collectionsView.offsetWidth;
+          collectionsView.style.opacity = '1';
+          collectionsView.style.transform = 'translateY(0)';
+        }
+      }, 400);
+    }
+
+    async function renderCollections() {
+      const grid = document.getElementById('collections-grid');
+      // Clean up previous ObjectURLs to prevent memory leaks with high-res images
+      document.querySelectorAll('#collections-grid img').forEach(img => {
+        if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+      });
+
+      const collections = await getAllCollections();
+      const allPosts = await getAllPosts();
+
+      if (!activeCollectionName) {
+        renderCollectionTiles(collections, allPosts);
+      } else {
+        renderSingleCollection(collections, allPosts);
+      }
+    }
+
+    function renderCollectionTiles(collections, allPosts) {
+      const grid = document.getElementById('collections-grid');
+      grid.innerHTML = '';
+      
+      if (!collections.length) {
+        grid.innerHTML = '<p class="gallery-empty">No collections created yet.</p>';
+        return;
+      }
+
+      const tilesContainer = document.createElement('div');
+      tilesContainer.className = 'collection-tiles-grid';
+
+      collections.forEach(col => {
+        const firstPost = allPosts.find(p => p.id === col.postIds[0]);
+        let previewSrc = '';
+        if (firstPost) {
+          const images = Array.isArray(firstPost.imageData) ? firstPost.imageData : [firstPost.imageData];
+          previewSrc = window.resolveImgUrl(images[0]);
+        }
+
+        const tile = document.createElement('div');
+        tile.className = 'collection-tile';
+        tile.onclick = () => {
+          activeCollectionName = col.name;
+          renderCollections();
+        };
+        
+        tile.innerHTML = `
+          <div class="tile-preview">
+            <div class="tile-image-container"></div>
+            <div class="tile-badge">${col.postIds.length}</div>
+          </div>
+          <div class="tile-info">
+            <h3>${col.name}</h3>
+          </div>
+        `;
+
+        const imgContainer = tile.querySelector('.tile-image-container');
+        if (previewSrc) {
+            const img = document.createElement('img');
+            img.src = previewSrc;
+            img.alt = col.name;
+            imgContainer.appendChild(img);
+        } else {
+            imgContainer.innerHTML = '<div class="tile-empty-icon">📁</div>';
+        }
+
+        tilesContainer.appendChild(tile);
+      });
+      grid.appendChild(tilesContainer);
+    }
+
+    function renderSingleCollection(collections, allPosts) {
+      const grid = document.getElementById('collections-grid');
+      const col = collections.find(c => c.name === activeCollectionName);
+      if (!col) {
+        activeCollectionName = null;
+        renderCollections();
+        return;
+      }
+
+      let collectionPosts = allPosts.filter(p => col.postIds.includes(p.id));
+
+      // Apply Search Filter
+      if (window.collectionSearchQuery) {
+        const q = window.collectionSearchQuery.toLowerCase();
+        collectionPosts = collectionPosts.filter(p => 
+          p.title.toLowerCase().includes(q) || 
+          p.description.toLowerCase().includes(q) || 
+          p.author.toLowerCase().includes(q)
+        );
+      }
+
+      // Apply Sorting
+      if (collectionSortOrder === 'manual') {
+        collectionPosts.sort((a, b) => col.postIds.indexOf(a.id) - col.postIds.indexOf(b.id));
+      } else if (collectionSortOrder === 'newest') {
+        collectionPosts.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      } else if (collectionSortOrder === 'title-asc') {
+        collectionPosts.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      }
+
+      const header = document.createElement('div');
+      header.className = 'collection-detail-header';
+      header.innerHTML = `
+        <button class="back-link" onclick="activeCollectionName=null; renderCollections()">← Back to Collections</button>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+          <h2>📁 ${col.name} <small>(${col.postIds.length})</small></h2>
+          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <input type="search" placeholder="Search in collection..." value="${window.collectionSearchQuery}" oninput="window.collectionSearchQuery=this.value; renderCollections()" style="background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0.6rem; padding: 0.5rem; font-family: inherit; min-width: 200px;" />
+            <select onchange="collectionSortOrder=this.value; renderCollections()" style="background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0.6rem; padding: 0.5rem; font-family: inherit;">
+              <option value="manual" ${collectionSortOrder === 'manual' ? 'selected' : ''}>Manual Order</option>
+              <option value="newest" ${collectionSortOrder === 'newest' ? 'selected' : ''}>Newest Added</option>
+              <option value="title-asc" ${collectionSortOrder === 'title-asc' ? 'selected' : ''}>Title A-Z</option>
+            </select>
+            <button class="button" onclick="downloadCollectionAsZip('${col.name}')" style="padding: 0.5rem 1rem; font-size: 0.85rem;">Download ZIP</button>
+          </div>
+        </div>
+      `;
+      grid.innerHTML = '';
+      grid.appendChild(header);
+
+      const photoGrid = document.createElement('div');
+      photoGrid.className = 'gallery-grid';
+      
+      const colPostIds = collectionPosts.map(p => p.id);
+      const token = localStorage.getItem('bf_token');
+      const userPayload = token ? parseJwt(token) : null;
+      const isModOrAdmin = userPayload && (userPayload.role === 'admin' || userPayload.role === 'moderator');
+      const currentUser = localStorage.getItem('bf_username');
+
+      collectionPosts.forEach((post, index) => {
+        const card = document.createElement('article');
+        card.className = 'photo-card';
+        
+        // Drag and Drop Logic
+        card.draggable = true;
+        card.ondragstart = (e) => {
+          e.dataTransfer.setData('text/plain', JSON.stringify({ colName: col.name, index }));
+          card.classList.add('dragging');
+        };
+        card.ondragend = () => card.classList.remove('dragging');
+        card.ondragover = (e) => e.preventDefault();
+        card.ondrop = (e) => handleDrop(e, col.name, index);
+
+        const images = Array.isArray(post.imageData) ? post.imageData : [post.imageData];
+        let currentImgIndex = 0;
+        const isOwner = currentUser === post.author;
+
+        // Parse if stringified
+        let album = post.imageData;
+        if (typeof album === 'string') {
+          try {
+            const p = JSON.parse(album);
+            album = Array.isArray(p) ? p : [p];
+          } catch(e) { album = [album]; }
+        }
+        if (!Array.isArray(album)) album = [album];
+
+        const getImgUrl = (idx) => {
+          const data = album[idx];
+          return window.resolveImgUrl(data);
+        };
+        const initialSrc = getImgUrl(0);
+
+        const bookmarkIcon = `
+          <svg class="bookmark-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>`;
+        const heartIcon = `
+          <svg class="heart-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.78-8.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>`;
+        
+        card.innerHTML = `
+              <div class="card-image-container" style="height: 10cm;" draggable="false">
+                <div class="options-container">
+                  <button class="menu-btn">···</button>
+                  <div class="menu-dropdown">
+                    <button onclick="editPost('${post.id}')" style="${isOwner ? '' : 'display:none;'}">Edit</button>
+                    <button onclick="sharePost('${post.id}')">Share</button>
+                    <button onclick="deletePostUI('${post.id}')" style="color:#ff4d4d; ${(isOwner || isModOrAdmin) ? '' : 'display:none;'}">Delete</button>
+                  </div>
+                </div>
+                ${album.length > 1 ? `
+                  <button class="slider-nav-btn prev">‹</button>
+                  <button class="slider-nav-btn next">›</button>
+                  <div class="image-counter">1 / ${album.length}</div>
+                ` : ''}
+                <img alt="${post.title}" loading="lazy" />
+              </div>
+              <div class="photo-details" style="padding: 1.25rem;">
+                <h3>${post.title}</h3>
+                <div class="meta">
+                  <span>By ${post.author}</span>
+                  <div class="card-actions">
+                    <button class="action-btn ${post.userLiked ? 'liked' : ''}" onclick="toggleLike('${post.id}')">${heartIcon} ${post.likes || 0}</button>
+                    <button class="action-btn" onclick="openCommentModal('${post.id}')">💬 ${calculateTotalComments(post)}</button>
+                    <button class="action-btn saved" onclick="saveToGroup('${col.name}', '${post.id}')" title="Remove from Collection">${bookmarkIcon}</button>
+                  </div>
+                </div>
+              </div>
+            `;
+
+        const imgEl = card.querySelector('img');
+        imgEl.src = initialSrc; // Safe property assignment
+        const counterEl = card.querySelector('.image-counter');
+        const menuBtn = card.querySelector('.menu-btn');
+        const dropdown = card.querySelector('.menu-dropdown');
+
+        menuBtn.onclick = (e) => {
+          e.stopPropagation();
+          dropdown.style.display = dropdown.style.display === 'flex' ? 'none' : 'flex';
+        };
+
+        if (album.length > 1 && card.querySelector('.next')) {
+          card.querySelector('.next').onclick = (e) => {
+            e.stopPropagation();
+            currentImgIndex = (currentImgIndex + 1) % album.length;
+            imgEl.src = getImgUrl(currentImgIndex);
+            if (counterEl) counterEl.textContent = `${currentImgIndex + 1} / ${album.length}`;
+          };
+          card.querySelector('.prev').onclick = (e) => {
+            e.stopPropagation();
+            currentImgIndex = (currentImgIndex - 1 + album.length) % album.length;
+            imgEl.src = getImgUrl(currentImgIndex);
+            if (counterEl) counterEl.textContent = `${currentImgIndex + 1} / ${album.length}`;
+          };
+        }
+
+        imgEl.onclick = () => openModal(album, currentImgIndex, post.title, post.description, `Posted by ${post.author}`, post.id, post.author, colPostIds);
+        photoGrid.appendChild(card);
+      });
+
+      if (collectionPosts.length === 0) grid.innerHTML += '<p class="gallery-empty">Collection empty.</p>';
+      grid.appendChild(photoGrid);
+    }
+
+    let zipCancelled = false;
+    window.cancelZipDownload = () => {
+      zipCancelled = true;
+    };
+
+    window.downloadCollectionAsZip = async (colName) => {
+      const collections = await getAllCollections();
+      const col = collections.find(c => c.name === colName);
+      if (!col || col.postIds.length === 0) return;
+
+      const allPosts = await getAllPosts();
+      const posts = allPosts.filter(p => col.postIds.includes(p.id));
+      
+      const zip = new JSZip();
+      const folder = zip.folder(colName);
+
+      zipCancelled = false;
+      const cancelBtn = document.getElementById('progress-cancel');
+      if (cancelBtn) cancelBtn.onclick = window.cancelZipDownload;
+      
+      showProgress(true, `Collecting ${posts.length} albums...`, 0);
+
+      for (let idx = 0; idx < posts.length; idx++) {
+        if (zipCancelled) throw new Error('CANCELLED');
+        const post = posts[idx];
+        const images = Array.isArray(post.imageData) ? post.imageData : [post.imageData];
+        for (let i = 0; i < images.length; i++) {
+          const data = images[i];
+          const fileName = `${post.title.replace(/[^a-z0-9]/gi, '_')}_${i + 1}.jpg`;
+          
+          if (data instanceof Blob) {
+            folder.file(fileName, data);
+          } else if (typeof data === 'string' && data.startsWith('data:')) {
+            // Handle base64 if any legacy data exists
+            const base64Data = data.split(',')[1];
+            folder.file(fileName, base64Data, { base64: true });
+          }
+        }
+        showProgress(true, `Preparing files...`, (idx / posts.length) * 10);
+      }
+
+      try {
+        const content = await zip.generateAsync({ type: 'blob' }, (metadata) => {
+          if (zipCancelled) throw new Error('CANCELLED');
+          const totalProgress = 10 + (metadata.percent * 0.9);
+          showProgress(true, `Compressing into ZIP...`, totalProgress);
+        });
+        const url = URL.createObjectURL(content);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${colName.replace(/[^a-z0-9]/gi, '_')}_collection.zip`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showToast('Download started!', 'success');
+      } catch (err) {
+        if (err.message === 'CANCELLED') {
+          showToast('Download cancelled.', 'info');
+        } else {
+          showToast('ZIP generation failed.', 'error');
+        }
+      } finally {
+        showProgress(false);
+      }
+    };
+
+    window.handleDrop = async (e, colName, targetIndex) => {
+      e.preventDefault();
+      try {
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        if (data.colName !== colName || data.index === targetIndex || collectionSortOrder !== 'manual') return;
+
+        const collections = await getAllCollections();
+        const col = collections.find(c => c.name === colName);
+        const postIds = [...col.postIds];
+        const [movedId] = postIds.splice(data.index, 1);
+        postIds.splice(targetIndex, 0, movedId);
+        
+        col.postIds = postIds;
+        await updateCollection(col);
+        renderCollections();
+      } catch (err) {
+        console.error("Drop failed", err);
+      }
+    };
+
+    function renderPosts(posts) {
+      // Clean up previous ObjectURLs to prevent memory leaks with high-res images
+      galleryGrid.querySelectorAll('img').forEach(img => {
+        if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+      });
+
+      galleryGrid.innerHTML = '';
+      if (!posts.length) {
+        galleryEmpty.classList.remove('hidden');
+        return;
+      }
+      galleryEmpty.classList.add('hidden');
+      
+      const sortOrder = document.getElementById('sort-order').value;
+      let sorted = [...posts];
+      if (sortOrder === 'newest') {
+        sorted.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      } else if (sortOrder === 'most-liked') {
+        sorted.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+      }
+
+      getAllCollections().then(collections => {
+        const savedIds = new Set(collections.flatMap(c => c.postIds));
+        renderSortedPosts(sorted, savedIds);
+      });
+    }
+
+    function renderSortedPosts(sorted, savedIds) {
+      sorted
+        .forEach((post) => {
+          const card = document.createElement('article');
+          card.className = 'photo-card';
+          
+          let album = post.imageData;
+          if (typeof album === 'string') {
+            try {
+              const p = JSON.parse(album);
+              album = Array.isArray(p) ? p : [p];
+            } catch(e) { album = [album]; }
+          }
+          if (!Array.isArray(album)) album = [album];
+
+          let currentImgIndex = 0;
+
+          const token = localStorage.getItem('bf_token');
+          const userPayload = token ? parseJwt(token) : null;
+          const isModOrAdmin = userPayload && (userPayload.role === 'admin' || userPayload.role === 'moderator');
+
+          const currentUser = localStorage.getItem('bf_username');
+          const isOwner = currentUser === post.author;
+
+          const getImgUrl = (idx) => {
+            const data = album[idx];
+            return window.resolveImgUrl(data);
+          };
+
+          const initialSrc = getImgUrl(0);
+          const isSaved = savedIds.has(post.id);
+          
+          const bookmarkIcon = `
+            <svg class="bookmark-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>`;
+          const heartIcon = `
+            <svg class="heart-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.78-8.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>`;
+
+          card.innerHTML = `
+            <div class="card-image-container" style="height: 11cm;">
+              <div class="options-container">
+                <button class="menu-btn">···</button>
+                <div class="menu-dropdown">
+                  <button onclick="sharePost('${post.id}')">Share</button>
+                  <button onclick="deletePostUI('${post.id}')" style="color:#ff4d4d; ${(isOwner || isModOrAdmin) ? '' : 'display:none;'}">Delete</button>
+                </div>
+              </div>
+              ${album.length > 1 ? `
+                <button class="slider-nav-btn prev">‹</button>
+                <button class="slider-nav-btn next">›</button>
+                <div class="image-counter">1 / ${album.length}</div>
+              ` : ''}
+              <img alt="${post.title}" loading="lazy" />
+            </div>
+            <div class="photo-details">
+              <h3>${post.title}</h3>
+              <p>${post.description}</p>
+            <div class="meta">
+                <span>By ${post.author}</span>
+              <div class="card-actions">
+                <button class="action-btn ${post.userLiked ? 'liked' : ''}" onclick="toggleLike('${post.id}')">${heartIcon} ${post.likes || 0}</button>
+                <button class="action-btn" onclick="openCommentModal('${post.id}')">💬 ${calculateTotalComments(post)}</button>
+                <button class="action-btn ${isSaved ? 'saved' : ''}" onclick="openSaveModal('${post.id}')" title="Save to Collection">${bookmarkIcon}</button>
+              </div>
+              </div>
+              <div class="photo-actions" style="margin-top:1rem;">
+                <a class="download-link" href="#" download="${post.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.jpg">Download</a>
+              </div>
+            </div>
+          `;
+
+          const imgEl = card.querySelector('img');
+          imgEl.src = initialSrc; // Safe property assignment
+          const counterEl = card.querySelector('.image-counter');
+          const menuBtn = card.querySelector('.menu-btn');
+          const dropdown = card.querySelector('.menu-dropdown');
+          const downloadLink = card.querySelector('.download-link');
+
+          menuBtn.onclick = (e) => {
+            e.stopPropagation();
+            dropdown.style.display = dropdown.style.display === 'flex' ? 'none' : 'flex';
+          };
+
+          if (album.length > 1) {
+            card.querySelector('.next').onclick = (e) => {
+              e.stopPropagation();
+              currentImgIndex = (currentImgIndex + 1) % album.length;
+              const newSrc = getImgUrl(currentImgIndex);
+              imgEl.src = newSrc;
+              downloadLink.href = newSrc;
+              counterEl.textContent = `${currentImgIndex + 1} / ${album.length}`;
+            };
+            card.querySelector('.prev').onclick = (e) => {
+              e.stopPropagation();
+              currentImgIndex = (currentImgIndex - 1 + album.length) % album.length;
+              const newSrc = getImgUrl(currentImgIndex);
+              imgEl.src = newSrc;
+              downloadLink.href = newSrc;
+              counterEl.textContent = `${currentImgIndex + 1} / ${album.length}`;
+            };
+          }
+
+          imgEl.onclick = () => {
+            openModal(album, currentImgIndex, post.title, post.description, `Posted by ${post.author}`, post.id, post.author);
+          };
+
+          galleryGrid.appendChild(card);
+        });
+    }
+
+    async function searchPosts() {
+      const query = searchQuery.value.toLowerCase();
+      let filtered = window.allPostsCache.filter(p => 
+        p.title.toLowerCase().includes(query) || 
+        p.description.toLowerCase().includes(query) ||
+        p.author.toLowerCase().includes(query)
+      );
+
+      renderPosts(filtered);
+    }
+
+    window.addEventListener('click', () => {
+      document.querySelectorAll('.menu-dropdown').forEach(d => d.style.display = 'none');
+    });
+
+    searchQuery.addEventListener('input', searchPosts);
+
+    document.getElementById('sort-order').addEventListener('change', searchPosts);
+
+    async function init() {
+      // Show skeletons
+      const skeletonCard = `
+        <div class="photo-card" style="border: none;">
+          <div class="skeleton" style="height: 11cm; border-radius: 1.25rem 1.25rem 0 0;"></div>
+          <div class="photo-details">
+            <div class="skeleton" style="height: 1.2rem; width: 70%; margin-bottom: 0.75rem; border-radius: 4px;"></div>
+            <div class="skeleton" style="height: 1rem; width: 90%; margin-bottom: 0.5rem; border-radius: 4px;"></div>
+            <div class="skeleton" style="height: 1rem; width: 40%; margin-bottom: 1rem; border-radius: 4px;"></div>
+            <div class="photo-actions">
+              <div class="skeleton" style="height: 2rem; width: 80px; border-radius: 0.6rem;"></div>
+              <div class="skeleton" style="height: 36px; width: 36px; border-radius: 50%;"></div>
+            </div>
+          </div>
+        </div>`;
+      galleryGrid.innerHTML = Array(4).fill(skeletonCard).join('');
+      galleryEmpty.classList.add('hidden');
+
+      await openDatabase();
+
+      const token = localStorage.getItem('bf_token');
+      if (!token) { window.location.href = 'auth.html'; return; }
+
+      const posts = await getAllPosts();
+      const currentUser = localStorage.getItem('bf_username');
+      window.allPostsCache = posts.filter(p => p.author === currentUser);
+      
+      // Small delay to appreciate the skeleton effect if loading is too fast
+      setTimeout(() => searchPosts(), 300);
+    }
+    init();
+  </script>
+</body>
+</html>

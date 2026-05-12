@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Profile - BeyondFrame</title>
+  <link rel="icon" type="image/svg+xml" href="camera-logo.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="manifest" href="json/manifest.json" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <h1><img src="camera-logo.svg" alt="Camera" class="header-logo" /> BeyondFrame</h1>
+    </div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="Gallery.html">Gallery</a>
+      <a href="submit.html">Submit</a>
+    </nav>
+  </header>
+
+  <main class="gallery-section">
+    <section id="user-info" class="about-section" style="margin-bottom: 3rem; text-align: center; position: relative;">
+      <!-- Avatar Section -->
+      <div class="profile-avatar-container" style="margin-bottom: 1.5rem; position: relative; display: inline-block;">
+        <div class="avatar-wrapper" onclick="document.getElementById('avatar-input').click()" style="width: 150px; height: 150px; border-radius: 50%; border: 3px solid var(--accent-color); overflow: hidden; cursor: pointer; background: var(--bg-color); display: flex; align-items: center; justify-content: center;">
+          <img id="profile-img" src="" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+          <div id="avatar-placeholder" style="font-size: 3rem; opacity: 0.3;">👤</div>
+        </div>
+        <input type="file" id="avatar-input" class="hidden" accept="image/*" onchange="uploadAvatar(this.files[0])">
+        <button id="delete-avatar-btn" class="delete-photo-btn hidden" onclick="deleteAvatar()" title="Remove Image" style="position: absolute; bottom: 5px; right: 5px; background: #ff4d4d; color: white;">&times;</button>
+      </div>
+
+      <!-- User Details Table -->
+      <div id="user-details-table-container" style="margin: 1.5rem auto 2.5rem; max-width: 550px;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; background: var(--card-bg); border-radius: 1rem; overflow: hidden; border: none; font-size: 0.95rem;">
+          <tr>
+            <th style="padding: 1rem; opacity: 0.6; width: 35%;">Username</th>
+            <td id="table-username" style="padding: 1rem; font-weight: 600;"></td>
+          </tr>
+          <tr>
+            <th style="padding: 1rem; opacity: 0.6;">Email</th>
+            <td id="table-email" style="padding: 1rem;"></td>
+          </tr>
+          <tr>
+            <th style="padding: 1rem; opacity: 0.6;">Role</th>
+            <td id="table-role" style="padding: 1rem; text-transform: capitalize;"></td>
+          </tr>
+          <tr>
+            <th style="padding: 1rem; opacity: 0.6;">Sex</th>
+            <td id="table-gender" style="padding: 1rem;"></td>
+          </tr>
+          <tr>
+            <th style="padding: 1rem; opacity: 0.6;">About</th>
+            <td id="table-bio" style="padding: 1rem; line-height: 1.5; font-style: italic;"></td>
+          </tr>
+          <tr>
+            <th style="padding: 1rem; opacity: 0.6;">Member since</th>
+            <td id="table-joined" style="padding: 1rem; opacity: 0.8;"></td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Security Settings -->
+      <div id="security-settings" class="about-section" style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 2rem;">
+        <h3>Security Settings</h3>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;">
+          <button class="button" onclick="document.getElementById('password-form-container').classList.toggle('hidden')">Change Password</button>
+          <button class="button" style="background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color);" onclick="initiatePasswordReset()">Reset Password</button>
+        </div>
+
+        <div id="password-form-container" class="hidden" style="margin-top: 1.5rem; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
+          <form id="password-change-form" onsubmit="updatePassword(event)">
+            <div class="form-group">
+              <label>Current Password</label>
+              <input type="password" id="old-password" required />
+            </div>
+            <div class="form-group">
+              <label>New Password</label>
+              <input type="password" id="new-password" required minlength="8" />
+            </div>
+            <div class="form-group">
+              <label>Confirm New Password</label>
+              <input type="password" id="confirm-new-password" required />
+            </div>
+            <button type="submit" class="auth-button">Update Password</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Account Management -->
+      <div id="account-management" class="about-section" style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 2rem;">
+        <h3>Account Management</h3>
+        <div style="display: flex; flex-direction: column; gap: 1rem; align-items: center; margin-top: 1rem;">
+          <div style="width: 100%; max-width: 300px;">
+            <button class="button" onclick="logout()" style="width: 100%;">Logout</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delete Account Section -->
+      <div id="delete-account-section" class="about-section" style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 2rem;">
+        <h3>Delete Account</h3>
+        <div style="display: flex; flex-direction: column; gap: 1rem; align-items: center; margin-top: 1rem;">
+          <div style="width: 100%; max-width: 300px;">
+            <button class="button" style="background: #ff4d4d; color: white; border: 1px solid #ff4d4d; width: 100%;" onclick="deleteAccount()">Delete Account</button>
+          </div>
+        </div>
+        <p style="font-size: 0.85rem; opacity: 0.7; margin-top: 1.5rem;">
+          Deleting your account is permanent and will remove all your posts, collections, and profile data.
+          This action cannot be undone.
+        </p>
+      </div>
+
+      <!-- About Content Section -->
+      <div id="about-section" class="about-section" style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 2rem; text-align: left;">
+        <h2>About BeyondFrame</h2>
+        <p style="opacity: 0.8; line-height: 1.8; margin-bottom: 2rem;">This site is a simple, friendly place for photographers and travelers to post images from their journeys and inspire others with scenes from around the world.</p>
+        <div class="features">
+          <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 1rem; padding: 1.5rem;">
+            <h3 style="margin: 0 0 0.75rem; font-size: 1.15rem;">Global scenes</h3>
+            <p style="margin: 0; opacity: 0.8; line-height: 1.6;">Discover photos from many countries and landscapes.</p>
+          </div>
+          <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 1rem; padding: 1.5rem;">
+            <h3 style="margin: 0 0 0.75rem; font-size: 1.15rem;">Community sharing</h3>
+            <p style="margin: 0; opacity: 0.8; line-height: 1.6;">Submit your own photography and connect through visuals.</p>
+          </div>
+          <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 1rem; padding: 1.5rem;">
+            <h3 style="margin: 0 0 0.75rem; font-size: 1.15rem;">Responsive design</h3>
+            <p style="margin: 0; opacity: 0.8; line-height: 1.6;">The layout looks great on mobile, tablet, and desktop screens.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    
+    <div id="profile-grid" class="gallery-grid"></div>
+    <p id="profile-empty" class="gallery-empty hidden">You haven't shared any scenes yet.</p>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 BeyondFrame. Capture moments, share scenes.</p>
+  </footer>
+
+  <script src="js/script.js"></script>
+  <script>
+    window.loadProfile = async function() {
+      const token = localStorage.getItem('bf_token');
+      if (!token) {
+        window.location.href = 'auth.html';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json().catch(() => ({ error: 'Invalid server response' }));
+
+        if (!res.ok) {
+          showToast(data.error || `Failed to load profile: ${res.status}`, 'error');
+          if (res.status === 401 || res.status === 403) {
+            localStorage.removeItem('bf_token');
+            localStorage.removeItem('bf_username');
+            localStorage.removeItem('bf_role');
+            window.location.href = 'auth.html';
+          }
+          return;
+        }
+
+        // Fill User Info
+        document.getElementById('table-username').textContent = data.user.username;
+        document.getElementById('table-email').textContent = data.user.email;
+        document.getElementById('table-role').textContent = data.user.role;
+        document.getElementById('table-gender').textContent = data.user.gender || 'Not specified';
+        document.getElementById('table-bio').textContent = data.user.bio || "No bio provided yet.";
+        
+        const joinDate = data.user.created_at ? new Date(data.user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Unknown';
+        document.getElementById('table-joined').textContent = joinDate;
+
+        // Handle Avatar Display
+        const img = document.getElementById('profile-img');
+        const placeholder = document.getElementById('avatar-placeholder');
+        const deleteBtn = document.getElementById('delete-avatar-btn');
+        
+        if (data.user.profile_pic) {
+          img.src = window.resolveImgUrl(data.user.profile_pic);
+          img.style.display = 'block';
+          placeholder.style.display = 'none';
+          deleteBtn.classList.remove('hidden');
+        } else {
+          img.style.display = 'none';
+          placeholder.style.display = 'block';
+          deleteBtn.classList.add('hidden');
+        }
+
+        // Render Profile Posts
+        renderProfilePosts(data.posts);
+      } catch (err) {
+        showToast('Failed to load profile', 'error');
+      }
+    }
+
+    async function renderProfilePosts(posts) {
+      const grid = document.getElementById('profile-grid');
+      const empty = document.getElementById('profile-empty');
+      grid.innerHTML = '';
+      
+      if (!posts || posts.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      const collections = await getAllCollections();
+      const savedIds = new Set(collections.flatMap(c => c.postIds));
+
+      posts.forEach(post => {
+        const card = document.createElement('article');
+        card.className = 'photo-card';
+        const images = Array.isArray(post.imageData) ? post.imageData : [post.imageData];
+        const isSaved = savedIds.has(post.id);
+        const bookmarkIcon = `
+          <svg class="bookmark-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>`;
+        const heartIcon = `
+          <svg class="heart-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.78-8.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>`;
+
+        card.innerHTML = `
+          <div class="card-image-container">
+            <img src="${window.resolveImgUrl(images[0])}" alt="${post.title}" onclick="openModal(${JSON.stringify(images).replace(/"/g, '&quot;')}, 0, '${post.title}', '${post.description}', 'By ${post.author}', '${post.id}', '${post.author}')" />
+          </div>
+          <div class="photo-details">
+            <h3>${post.title}</h3>
+            <div class="meta">
+              <span>By ${post.author}</span>
+              <div class="card-actions">
+                <button class="action-btn ${post.userLiked ? 'liked' : ''}" onclick="toggleLike('${post.id}')">${heartIcon} ${post.likes || 0}</button>
+                <button class="action-btn" onclick="openCommentModal('${post.id}')">💬 ${calculateTotalComments(post)}</button>
+                <button class="action-btn ${isSaved ? 'saved' : ''}" onclick="openSaveModal('${post.id}')" title="Save to Collection">${bookmarkIcon}</button>
+              </div>
+            </div>
+            <div class="photo-actions" style="margin-top:1rem;">
+               <button class="delete-photo-btn" onclick="deletePostUI('${post.id}')" title="Delete Album" style="width: 100%; border-radius: 0.8rem; font-size: 0.9rem;">Delete Post</button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function uploadAvatar(file) {
+      if (!file) return;
+      showToast('Updating profile image...', 'info');
+      try {
+        const compressed = await compressImage(file, 400, 0.7); // Avatar doesn't need to be huge
+        const base64 = await readFileAsDataURL(compressed);
+        
+        await fetch(`${API_URL}/profile/avatar`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ profile_pic: base64 })
+        });
+        loadProfile();
+        showToast('Profile image updated!', 'success');
+      } catch (err) { showToast('Upload failed', 'error'); }
+    }
+
+    async function deleteAvatar() {
+      if (!confirm('Remove your profile image?')) return;
+      try {
+        await fetch(`${API_URL}/profile/avatar`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ profile_pic: null })
+        });
+        loadProfile();
+        showToast('Image removed', 'info');
+      } catch (err) { showToast('Failed to remove image', 'error'); }
+    }
+
+    async function updatePassword(e) {
+      e.preventDefault();
+      const oldPassword = document.getElementById('old-password').value;
+      const newPassword = document.getElementById('new-password').value;
+      const confirm = document.getElementById('confirm-new-password').value;
+
+      if (newPassword !== confirm) {
+        showToast('Passwords do not match', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/profile/change-password`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ oldPassword, newPassword })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Password updated successfully!', 'success');
+          document.getElementById('password-change-form').reset();
+          document.getElementById('password-form-container').classList.add('hidden');
+        } else {
+          showToast(data.error || 'Update failed', 'error');
+        }
+      } catch (err) { showToast('Server error', 'error'); }
+    }
+
+    async function deleteAccount() {
+      document.getElementById('delete-account-modal').classList.remove('hidden');
+      document.getElementById('delete-confirm-password').focus();
+    }
+
+    async function processAccountDeletion() {
+      const password = document.getElementById('delete-confirm-password').value;
+      if (!password) {
+        showToast('Password is required to delete account.', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/profile`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Account deleted successfully. Redirecting...', 'success');
+          closeDeleteAccountModal();
+          window.logout(true); // Force logout because the account no longer exists
+        } else {
+          showToast(data.error || 'Failed to delete account', 'error');
+        }
+      } catch (err) { showToast('Server error', 'error'); }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      console.log("profile.html script loaded and DOMContentLoaded fired.");
+      openDatabase().then(() => {
+        const logoutModalCheck = document.getElementById('logout-confirm-modal');
+        if (!logoutModalCheck) {
+          console.error("CRITICAL: 'logout-confirm-modal' element is NOT found in the DOM after injection.");
+          showToast("CRITICAL ERROR: Logout modal HTML missing. Please check your server files.", "error");
+        } else {
+          console.log("'logout-confirm-modal' element successfully injected and found in DOM.");
+        }
+        loadProfile();
+      });
+    });
+  </script>
+</body>
+</html>

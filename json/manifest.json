@@ -1,0 +1,18 @@
+{
+  "name": "BeyondFrame",
+  "short_name": "BeyondFrame",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#4dabf7",
+  "icons": [
+    {
+      "src": "../camera-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "description": "Capture moments, share scenes with the community.",
+  "orientation": "portrait"
+}

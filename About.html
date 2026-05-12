@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About - BeyondFrame</title>
+  <link rel="icon" type="image/svg+xml" href="camera-logo.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="manifest" href="json/manifest.json" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <h1><img src="camera-logo.svg" alt="Camera" class="header-logo" /> BeyondFrame</h1>
+    </div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="Gallery.html">Gallery</a>
+      <a href="submit.html">Submit</a>
+      <a href="About.html" class="active">About</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="about" class="about-section">
+      <h2>About BeyondFrame</h2>
+      <p>This site is a simple, friendly place for photographers and travelers to post images from their journeys and inspire others with scenes from around the world.</p>
+      <div class="features">
+        <div>
+          <h3>Global scenes</h3>
+          <p>Discover photos from many countries and landscapes.</p>
+        </div>
+        <div>
+          <h3>Community sharing</h3>
+          <p>Submit your own photography and connect through visuals.</p>
+        </div>
+        <div>
+          <h3>Responsive design</h3>
+          <p>The layout looks great on mobile, tablet, and desktop screens.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 BeyondFrame. Capture moments, share scenes.</p>
+  </footer>
+
+  <script src="js/script.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      openDatabase();
+    });
+  </script>
+</body>
+</html>
