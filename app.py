@@ -19,6 +19,12 @@ import io
 from collections import defaultdict
 import site
 
+# Ensure mimetypes are correctly initialized for cloud environments
+# to prevent 'nosniff' blocks on CSS/JS files.
+mimetypes.init()
+mimetypes.add_type('text/css', '.css')
+mimetypes.add_type('application/javascript', '.js')
+
 # In hosted/cloud environments without GPUs, onnxruntime prints warnings
 # when probing /sys/class/drm for devices. We must set these environment
 # variables BEFORE importing packages that trigger discovery (like NudeNet).
@@ -100,10 +106,6 @@ def classify_nude_file(path):
     return None
 
 # Explicitly register common MIME types to ensure browser compatibility
-mimetypes.add_type('text/css', '.css')
-mimetypes.add_type('application/javascript', '.js')
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
 
 STORAGE_DIR = os.getenv('DISK_PATH', BASE_DIR)
@@ -778,6 +780,14 @@ def add_security_headers(response):
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'Custom Server is up'})
+
+@app.route("/debug")
+def debug():
+    return {
+        "SMTP_HOST": os.getenv("SMTP_HOST"),
+        "SMTP_USER_EXISTS": bool(os.getenv("SMTP_USER")),
+        "SMTP_PASSWORD_EXISTS": bool(os.getenv("SMTP_PASSWORD"))
+    }
 
 
 @app.route('/api/heartbeat', methods=['POST'])
@@ -1778,8 +1788,6 @@ def handle_options(path=''):
 
 
 def run(server_port=None):
-    init_db()
-
     # Start the background maintenance thread
     cleanup_thread = threading.Thread(target=cleanup_expired_data, daemon=True)
     cleanup_thread.start()
