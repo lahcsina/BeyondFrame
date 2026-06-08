@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gallery - BeyondFrame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;600;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="camera-logo.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <link rel="manifest" href="json/manifest.json" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <h1><img src="camera-logo.svg" alt="Camera" class="header-logo" /> BeyondFrame</h1>
+    </div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="Gallery.html" class="active">Gallery</a>
+      <a href="submit.html">Submit</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="gallery" class="gallery-section">
+      <div class="gallery-tabs">
+        <button id="tab-scenes" class="tab-btn active" onclick="switchTab('scenes')">Your Scenes</button>
+        <button id="tab-collections" class="tab-btn" onclick="switchTab('collections')">Collections</button>
+      </div>
+
+      <div id="scenes-view" class="gallery-view">
+        <p id="view-description">Manage and browse the scenes you've shared.</p>
+        <div class="search-row" style="display: flex; gap: 1rem;">
+          <input id="search-query" type="search" placeholder="Search authors, titles, or descriptions..." style="flex: 2;" />
+          <div class="sort-options">
+            <button class="menu-btn" onclick="toggleModalMenu(event)" title="Sort Order">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18M7 12h10M10 18h4"/>
+              </svg>
+              <span>Sort</span>
+            </button>
+            <div class="menu-dropdown" style="top: calc(100% + 10px); right: 0;">
+              <button onclick="window.changeGallerySort('newest')">Newest</button>
+              <button onclick="window.changeGallerySort('most-liked')">Most Liked</button>
+            </div>
+          </div>
+        </div>
+        <div id="gallery-grid" class="gallery-grid"></div>
+        <p id="gallery-empty" class="gallery-empty">No photos uploaded yet.</p>
+      </div>
+
+      <div id="collections-view" class="gallery-view hidden" style="opacity: 0; transform: translateY(10px);">
+        <p>Your curated groups and saved favorites.</p>
+        <div id="collections-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 BeyondFrame. Capture moments, share scenes.</p>
+  </footer>
+
+  <script src="js/script.js"></script>
+  <script>
+    const searchQuery = document.getElementById('search-query');
+    const galleryGrid = document.getElementById('gallery-grid');
+    const galleryEmpty = document.getElementById('gallery-empty');
+    const collectionsGrid = document.getElementById('collections-grid');
+    let collectionSortOrder = 'manual'; // Default for collections
+    let currentTab = 'scenes'; // Default to 'Your Scenes'
+    window.collectionSearchQuery = '';
+    window.allPostsCache = [];
+    window.gallerySortOrder = 'newest';
+    let activeCollectionName = null;
+
+    window.switchTab = async function(type) {
+      currentTab = type;
+      const scenesView = document.getElementById('scenes-view');
+      const collectionsView = document.getElementById('collections-view');
+      const scenesTab = document.getElementById('tab-scenes');
+      const collectionsTab = document.getElementById('tab-collections');
+      const viewDesc = document.getElementById('view-description');
+      const activeView = type === 'scenes' ? scenesView : collectionsView;
+
+      activeCollectionName = null; // Reset view when switching tabs
+      window.collectionSearchQuery = '';
+
+      // Use CSS classes for cleaner transitions
+      if (type === 'scenes') {
+        viewDesc.textContent = "Manage and browse the scenes you've shared.";
+        await window.searchPosts();
+      } else {
+        await window.renderCollections();
+      }
+      scenesTab.classList.toggle('active', type === 'scenes');
+      collectionsTab.classList.toggle('active', type === 'collections');
+      scenesView.classList.toggle('hidden', type !== 'scenes');
+      collectionsView.classList.toggle('hidden', type !== 'collections');
+
+      // Ensure visibility by resetting inline animation styles
+      activeView.style.opacity = '1';
+      activeView.style.transform = 'translateY(0)';
+    };
+
+    window.renderCollections = async function() {
+      const collections = await window.getAllCollections();
+      const allPosts = await window.getAllPosts();
+
+      if (!activeCollectionName) {
+        renderCollectionTiles(collections, allPosts);
+      } else {
+        renderSingleCollection(collections, allPosts);
+      }
+    };
+
+    window.confirmDeleteCollection = async (name) => {
+      if (!(await window.customConfirm('Delete Collection', `Are you sure you want to delete the collection "${name}"? This action cannot be undone.`, 'Delete', 'danger'))) return;
+      try {
+        await window.deleteCollection(name);
+        showToast('Collection deleted', 'success');
+        if (activeCollectionName === name) activeCollectionName = null;
+        window.renderCollections();
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      }
+    };
+
+    function renderCollectionTiles(collections, allPosts) {
+      const grid = document.getElementById('collections-grid');
+      grid.innerHTML = '';
+      
+      if (!collections.length) {
+        grid.innerHTML = '<p class="gallery-empty">No collections created yet.</p>';
+        return;
+      }
+
+      const tilesContainer = document.createElement('div');
+      tilesContainer.className = 'collection-tiles-grid';
+
+      collections.forEach(col => {
+        const firstPost = allPosts.find(p => p.id === col.postIds[0]);
+        let previewSrc = '';
+        if (firstPost && firstPost.imageData && firstPost.imageData.length > 0) {
+          previewSrc = window.resolveImgUrl(firstPost.imageData[0]);
+        }
+
+        const tile = document.createElement('div');
+        tile.className = 'collection-tile';
+        tile.onclick = () => {
+          activeCollectionName = col.name;
+          window.renderCollections();
+        };
+        
+        tile.innerHTML = `
+          <div class="tile-preview">
+            <div class="tile-image-container"></div>
+            <div class="tile-badge">${col.postIds.length}</div>
+            <button class="delete-photo-btn" onclick="event.stopPropagation(); window.confirmDeleteCollection('${window.escapeHTML(col.name)}')" title="Delete Collection" style="position: absolute; top: 0.5rem; left: 0.5rem; width: 28px; height: 28px; font-size: 1.2rem; z-index: 5;">&times;</button>
+          </div>
+          <div class="tile-info">
+            <h3>${col.name}</h3>
+          </div>
+        `;
+
+        const imgContainer = tile.querySelector('.tile-image-container');
+        if (previewSrc) {
+            const img = document.createElement('img');
+            img.src = previewSrc;
+            img.alt = col.name;
+            imgContainer.appendChild(img);
+        } else {
+            imgContainer.innerHTML = '<div class="tile-empty-icon">📁</div>';
+        }
+
+        tilesContainer.appendChild(tile);
+      });
+      grid.appendChild(tilesContainer);
+    }
+
+    function renderSingleCollection(collections, allPosts) {
+      const grid = document.getElementById('collections-grid');
+      const col = collections.find(c => c.name === activeCollectionName);
+      if (!col) {
+        activeCollectionName = null;
+        window.renderCollections();
+        return;
+      }
+
+      let collectionPosts = allPosts.filter(p => col.postIds.includes(p.id));
+
+      // Apply Search Filter
+      if (window.collectionSearchQuery) {
+        const q = window.collectionSearchQuery.toLowerCase();
+        collectionPosts = collectionPosts.filter(p => 
+          p.title.toLowerCase().includes(q) || 
+          p.description.toLowerCase().includes(q) || 
+          p.author.toLowerCase().includes(q)
+        );
+      }
+
+      // Apply Sorting
+      if (collectionSortOrder === 'manual' && col.postIds) {
+        collectionPosts.sort((a, b) => col.postIds.indexOf(a.id) - col.postIds.indexOf(b.id));
+      } else if (collectionSortOrder === 'newest') {
+        collectionPosts.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      } else if (collectionSortOrder === 'title-asc') {
+        collectionPosts.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      }
+
+      const header = document.createElement('div');
+      header.className = 'collection-detail-header';
+      header.innerHTML = `
+        <button class="back-link" onclick="activeCollectionName=null; window.renderCollections()">← Back to Collections</button>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+          <h2>📁 ${col.name} <small>(${col.postIds.length})</small></h2>
+          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <input type="search" placeholder="Search in collection..." value="${window.collectionSearchQuery}" oninput="window.collectionSearchQuery=this.value; window.renderCollections()" style="background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0.6rem; padding: 0.5rem; font-family: inherit; min-width: 200px;" />
+            <select onchange="collectionSortOrder=this.value; window.renderCollections()" style="background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0.6rem; padding: 0.5rem; font-family: inherit;">
+              <option value="manual" ${collectionSortOrder === 'manual' ? 'selected' : ''}>Manual Order</option>
+              <option value="newest" ${collectionSortOrder === 'newest' ? 'selected' : ''}>Newest Added</option>
+              <option value="title-asc" ${collectionSortOrder === 'title-asc' ? 'selected' : ''}>Title A-Z</option>
+            </select>
+            <button class="button" onclick="downloadCollectionAsZip('${col.name}')" style="padding: 0.5rem 1rem; font-size: 0.85rem;">Download ZIP</button>
+            <button class="button" onclick="window.confirmDeleteCollection('${window.escapeHTML(col.name)}')" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: #ff4d4d; color: white;">Delete Group</button>
+          </div>
+        </div>
+      `;
+      grid.innerHTML = '';
+      grid.appendChild(header);
+
+      const photoGrid = document.createElement('div');
+      photoGrid.className = 'gallery-grid';
+      
+      const colPostIds = collectionPosts.map(p => p.id);
+      const token = localStorage.getItem('bf_token');
+      const userPayload = token ? parseJwt(token) : null;
+      const isModOrAdmin = userPayload && (userPayload.role === 'admin' || userPayload.role === 'moderator');
+      const currentUser = localStorage.getItem('bf_username');
+
+      collectionPosts.forEach((post, index) => {
+        const card = document.createElement('article');
+        card.className = 'photo-card';
+        
+        // Drag and Drop Logic
+        card.draggable = true;
+        card.ondragstart = (e) => {
+          e.dataTransfer.setData('text/plain', JSON.stringify({ colName: col.name, index }));
+          card.classList.add('dragging');
+        };
+        card.ondragend = () => card.classList.remove('dragging');
+        card.ondragover = (e) => e.preventDefault();
+        card.ondrop = (e) => handleDrop(e, col.name, index);
+        
+        const album = post.imageData || [];
+        let currentImgIndex = 0;
+        const isOwner = currentUser === post.author;
+        const isVideo = post.mediaType === 'video';
+
+        const getImgUrl = (idx) => {
+          const data = album[idx];
+          return window.resolveImgUrl(data);
+        };
+        const initialSrc = getImgUrl(0);
+
+        const bookmarkIcon = `
+          <svg class="bookmark-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>`;
+        const heartIcon = `
+          <svg class="heart-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.78-8.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>`;
+        
+        card.innerHTML = `
+              <div class="card-image-container" style="height: 10cm;" draggable="false">
+                <div class="media-badge">
+                  ${isVideo ? 
+                    `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>` : 
+                    (album.length > 1 ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21 6H9c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/><path d="M5 18H3V4c0-1.1.9-2 2-2h10v2H5v14z"/></svg>` : 
+                    `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`)
+                  }
+                </div>
+                <div class="options-container">
+                  <button class="menu-btn" title="Options">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle>
+                    </svg>
+                  </button>
+                  <div class="menu-dropdown">
+                    <button onclick="editPost('${post.id}')" style="${isOwner ? '' : 'display:none;'}">Edit</button>
+                    <button onclick="sharePost('${post.id}')">Share</button>
+                    <button class="download-btn" onclick="downloadPost('${post.id}', 0)">Download</button>
+                    <button onclick="deletePostUI('${post.id}')" style="color:#ff4d4d; ${(isOwner || isModOrAdmin) ? '' : 'display:none;'}">Delete</button>
+                  </div>
+                </div>
+                ${album.length > 1 ? `
+                  <button class="slider-nav-btn prev"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                  <button class="slider-nav-btn next"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                  <div class="image-counter">1 / ${album.length}</div>
+                ` : ''}
+                ${isVideo ? 
+                  `<video src="${initialSrc}" autoplay loop muted playsinline style="width:100%; height:10cm; object-fit:cover; cursor:pointer;"></video>` :
+                  `<img alt="${post.title}" loading="lazy" />`
+                }
+              </div>
+              <div class="photo-details" style="padding: 1.25rem;">
+                <h3>${post.title}</h3>
+                <div class="meta">
+                  <span>By ${post.author}</span>
+                  <div class="card-actions">
+                    <button class="action-btn ${post.userLiked ? 'liked' : ''}" onclick="toggleLike('${post.id}')">${heartIcon} ${post.likes || 0}</button>
+                    <button class="action-btn" onclick="openCommentModal('${post.id}')">💬 ${calculateTotalComments(post)}</button>
+                    <button class="action-btn saved" onclick="saveToGroup('${col.name}', '${post.id}')" title="Remove from Collection">${bookmarkIcon}</button>
+                  </div>
+                </div>
+              </div>
+            `;
+
+        const mediaEl = card.querySelector('img, video');
+        mediaEl.src = initialSrc; // Safe property assignment
+        const counterEl = card.querySelector('.image-counter');
+        const cardImageContainer = card.querySelector('.card-image-container');
+        const dots = card.querySelectorAll('.card-dots .dot');
+        const downloadBtn = card.querySelector('.download-btn');
+        const menuBtn = card.querySelector('.menu-btn');
+        const dropdown = card.querySelector('.menu-dropdown');
+
+        menuBtn.onclick = (e) => {
+          e.stopPropagation();
+          dropdown.style.display = dropdown.style.display === 'flex' ? 'none' : 'flex';
+        };
+
+        if (album.length > 1 && card.querySelector('.next')) {
+          card.querySelector('.next').onclick = (e) => {
+            e.stopPropagation();
+            currentImgIndex = (currentImgIndex + 1) % album.length;
+            const newSrc = getImgUrl(currentImgIndex);
+            mediaEl.src = newSrc;
+            if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+            card.querySelectorAll('.download-btn').forEach(btn => btn.onclick = () => downloadPost(post.id, currentImgIndex));
+            if (counterEl) counterEl.textContent = `${currentImgIndex + 1} / ${album.length}`;
+            if (dots.length) { dots.forEach(d => d.classList.remove('active')); dots[currentImgIndex].classList.add('active'); }
+          };
+          card.querySelector('.prev').onclick = (e) => {
+            e.stopPropagation();
+            currentImgIndex = (currentImgIndex - 1 + album.length) % album.length;
+            const newSrc = getImgUrl(currentImgIndex);
+            mediaEl.src = newSrc;
+            if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+            card.querySelectorAll('.download-btn').forEach(btn => btn.onclick = () => downloadPost(post.id, currentImgIndex));
+            if (counterEl) counterEl.textContent = `${currentImgIndex + 1} / ${album.length}`;
+            if (dots.length) { dots.forEach(d => d.classList.remove('active')); dots[currentImgIndex].classList.add('active'); }
+          };
+
+          dots.forEach((dot, i) => {
+            dot.onclick = (e) => {
+              e.stopPropagation();
+              currentImgIndex = i;
+              const newSrc = getImgUrl(currentImgIndex);
+              mediaEl.src = newSrc;
+              if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+              card.querySelectorAll('.download-btn').forEach(btn => btn.onclick = () => downloadPost(post.id, currentImgIndex));
+              if (counterEl) counterEl.textContent = `${currentImgIndex + 1} / ${album.length}`;
+              dots.forEach(d => d.classList.remove('active'));
+              dot.classList.add('active');
+            };
+          });
+        }
+
+        mediaEl.onclick = () => openModal(album, currentImgIndex, post.title, post.description, `Posted by ${post.author}`, post.id, post.author, colPostIds, post.mediaType);
+        photoGrid.appendChild(card);
+      });
+
+      if (collectionPosts.length === 0) grid.innerHTML += '<p class="gallery-empty">Collection empty.</p>';
+      grid.appendChild(photoGrid);
+    }
+
+    let zipCancelled = false;
+    window.cancelZipDownload = () => {
+      zipCancelled = true;
+    };
+
+    window.downloadCollectionAsZip = async (colName) => {
+      const collections = await getAllCollections();
+      const col = collections.find(c => c.name === colName);
+      if (!col || col.postIds.length === 0) return;
+
+      const allPosts = await getAllPosts();
+      const posts = allPosts.filter(p => col.postIds.includes(p.id));
+      
+      const zip = new JSZip();
+      const folder = zip.folder(colName);
+
+      zipCancelled = false;
+      const cancelBtn = document.getElementById('progress-cancel');
+      if (cancelBtn) cancelBtn.onclick = window.cancelZipDownload;
+      
+      showProgress(true, `Collecting ${posts.length} albums...`, 0);
+
+      for (let idx = 0; idx < posts.length; idx++) {
+        if (zipCancelled) throw new Error('CANCELLED');
+        const post = posts[idx];
+        const images = Array.isArray(post.imageData) ? post.imageData : [post.imageData];
+        for (let i = 0; i < images.length; i++) {
+          const data = images[i];
+          const fileName = `${post.title.replace(/[^a-z0-9]/gi, '_')}_${i + 1}.jpg`;
+          
+          if (data instanceof Blob) {
+            folder.file(fileName, data);
+          } else if (typeof data === 'string' && data.startsWith('data:')) {
+            // Handle base64 if any legacy data exists
+            const base64Data = data.split(',')[1];
+            folder.file(fileName, base64Data, { base64: true });
+          }
+        }
+        showProgress(true, `Preparing files...`, (idx / posts.length) * 10);
+      }
+
+      try {
+        const content = await zip.generateAsync({ type: 'blob' }, (metadata) => {
+          if (zipCancelled) throw new Error('CANCELLED');
+          const totalProgress = 10 + (metadata.percent * 0.9);
+          showProgress(true, `Compressing into ZIP...`, totalProgress);
+        });
+        const url = URL.createObjectURL(content);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${colName.replace(/[^a-z0-9]/gi, '_')}_collection.zip`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showToast('Download started!', 'success');
+      } catch (err) {
+        if (err.message === 'CANCELLED') {
+          showToast('Download cancelled.', 'info');
+        } else {
+          showToast('ZIP generation failed.', 'error');
+        }
+      } finally {
+        showProgress(false);
+      }
+    };
+
+    window.handleDrop = async (e, colName, targetIndex) => {
+      e.preventDefault();
+      try {
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        if (data.colName !== colName || data.index === targetIndex || collectionSortOrder !== 'manual') return;
+
+        const collections = await getAllCollections();
+        const col = collections.find(c => c.name === colName);
+        const postIds = [...col.postIds];
+        const [movedId] = postIds.splice(data.index, 1);
+        postIds.splice(targetIndex, 0, movedId);
+        
+        col.postIds = postIds;
+        await window.updateCollection(col);
+        window.renderCollections();
+      } catch (err) {
+        console.error("Drop failed", err);
+      }
+    };
+
+    window.renderPosts = function(posts, skipFetch = false) {
+      // Clean up previous ObjectURLs to prevent memory leaks with high-res images
+      galleryGrid.querySelectorAll('img').forEach(img => {
+        if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+      });
+
+      galleryGrid.innerHTML = '';
+      if (!posts || !posts.length) {
+        galleryEmpty.classList.remove('hidden');
+        return;
+      }
+      galleryEmpty.classList.add('hidden');
+      
+      const sorted = posts;
+
+      window.getAllCollections().then(collections => {
+        const savedIds = new Set(collections.flatMap(c => c.postIds));
+        renderSortedPosts(sorted, savedIds);
+      });
+    };
+
+    function renderSortedPosts(sorted, savedIds) {
+      sorted
+        .forEach((post) => {
+          const card = document.createElement('article');
+          card.className = 'photo-card';
+          
+          const album = post.imageData || [];
+          let currentImgIndex = 0;
+
+          const isVideo = post.mediaType === 'video';
+          const token = localStorage.getItem('bf_token');
+          const userPayload = token ? parseJwt(token) : null;
+          const isModOrAdmin = userPayload && (userPayload.role === 'admin' || userPayload.role === 'moderator');
+
+          const currentUser = localStorage.getItem('bf_username');
+          const isOwner = currentUser === post.author;
+
+          const getImgUrl = (idx) => {
+            const data = album[idx];
+            return window.resolveImgUrl(data);
+          };
+
+          const initialSrc = getImgUrl(0);
+          const isSaved = savedIds.has(post.id);
+          
+          const bookmarkIcon = `
+            <svg class="bookmark-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>`;
+          const heartIcon = `
+            <svg class="heart-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.78-8.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>`;
+
+          card.innerHTML = `
+            <div class="card-image-container" style="height: 11cm;">
+              <div class="media-badge">
+                ${isVideo ? 
+                  `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>` : 
+                  (album.length > 1 ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21 6H9c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/><path d="M5 18H3V4c0-1.1.9-2 2-2h10v2H5v14z"/></svg>` : 
+                  `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`)
+                }
+              </div>
+              <div class="options-container">
+                <button class="menu-btn" title="Options">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle>
+                  </svg>
+                </button>
+                <div class="menu-dropdown">
+                  <button onclick="editPost('${post.id}')" style="${isOwner ? '' : 'display:none;'}">Edit</button>
+                  <button onclick="sharePost('${post.id}')">Share</button>
+                  <button class="download-btn" onclick="downloadPost('${post.id}', 0)">Download</button>
+                  <button onclick="deletePostUI('${post.id}')" style="color:#ff4d4d; ${(isOwner || isModOrAdmin) ? '' : 'display:none;'}">Delete</button>
+                </div>
+              </div>
+              ${album.length > 1 ? `
+                <button class="slider-nav-btn prev"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                <button class="slider-nav-btn next"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                <div class="image-counter">1 / ${album.length}</div>
+              ` : ''}
+              ${isVideo ? 
+                `<video src="${initialSrc}" autoplay loop muted playsinline style="width:100%; height:11cm; object-fit:cover; cursor:pointer;"></video>` :
+                `<img alt="${post.title}" loading="lazy" />`
+              }
+            </div>
+            <div class="photo-details">
+              <h3>${post.title}</h3>
+              <p>${post.description}</p>
+            <div class="meta">
+                <span>By ${post.author}</span>
+              <div class="card-actions">
+                <button class="action-btn ${post.userLiked ? 'liked' : ''}" onclick="toggleLike('${post.id}')">${heartIcon} ${post.likes || 0}</button>
+                <button class="action-btn" onclick="openCommentModal('${post.id}')">💬 ${calculateTotalComments(post)}</button>
+                <button class="action-btn ${isSaved ? 'saved' : ''}" onclick="openSaveModal('${post.id}')" title="Save to Collection">${bookmarkIcon}</button>
+              </div>
+              </div>
+            </div>
+          `;
+
+          const mediaEl = card.querySelector('img, video');
+          mediaEl.src = initialSrc; // Safe property assignment
+          const counterEl = card.querySelector('.image-counter');
+          const cardImageContainer = card.querySelector('.card-image-container');
+          const dots = card.querySelectorAll('.card-dots .dot');
+          const menuBtn = card.querySelector('.menu-btn');
+          const downloadBtn = card.querySelector('.download-btn');
+          const dropdown = card.querySelector('.menu-dropdown');
+
+          menuBtn.onclick = (e) => {
+            e.stopPropagation();
+            dropdown.style.display = dropdown.style.display === 'flex' ? 'none' : 'flex';
+          };
+
+          if (album.length > 1) {
+            card.querySelector('.next').onclick = (e) => {
+              e.stopPropagation();
+              currentImgIndex = (currentImgIndex + 1) % album.length;
+              const newSrc = getImgUrl(currentImgIndex);
+              mediaEl.src = newSrc;
+              if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+              const dBtns = card.querySelectorAll('.download-btn');
+              dBtns.forEach(btn => {
+                btn.onclick = () => downloadPost(post.id, currentImgIndex);
+              });
+              counterEl.textContent = `${currentImgIndex + 1} / ${album.length}`;
+              if (dots.length) { dots.forEach(d => d.classList.remove('active')); dots[currentImgIndex].classList.add('active'); }
+            };
+            card.querySelector('.prev').onclick = (e) => {
+              e.stopPropagation();
+              currentImgIndex = (currentImgIndex - 1 + album.length) % album.length;
+              const newSrc = getImgUrl(currentImgIndex);
+              mediaEl.src = newSrc;
+              if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+              const dBtns = card.querySelectorAll('.download-btn');
+              dBtns.forEach(btn => {
+                btn.onclick = () => downloadPost(post.id, currentImgIndex);
+              });
+              counterEl.textContent = `${currentImgIndex + 1} / ${album.length}`;
+              if (dots.length) { dots.forEach(d => d.classList.remove('active')); dots[currentImgIndex].classList.add('active'); }
+            };
+
+            dots.forEach((dot, i) => {
+              dot.onclick = (e) => {
+                e.stopPropagation();
+                currentImgIndex = i;
+                const newSrc = getImgUrl(currentImgIndex);
+                mediaEl.src = newSrc;
+                if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+                const dBtns = card.querySelectorAll('.download-btn');
+                dBtns.forEach(btn => btn.onclick = () => downloadPost(post.id, currentImgIndex));
+                counterEl.textContent = `${currentImgIndex + 1} / ${album.length}`;
+                dots.forEach(d => d.classList.remove('active'));
+                dot.classList.add('active');
+              };
+            });
+          }
+
+          mediaEl.onclick = () => {
+            openModal(album, currentImgIndex, post.title, post.description, `Posted by ${post.author}`, post.id, post.author, null, post.mediaType);
+          };
+
+          galleryGrid.appendChild(card);
+        });
+    }
+
+    window.searchPosts = async function() {
+      const query = searchQuery.value.toLowerCase();
+      const currentUser = localStorage.getItem('bf_username');
+      const posts = await window.getAllPosts(window.gallerySortOrder);
+      const userPosts = posts.filter(p => p.author === currentUser);
+      window.allPostsCache = userPosts;
+      let filtered = userPosts.filter(p => 
+        p.title.toLowerCase().includes(query) || 
+        p.description.toLowerCase().includes(query) ||
+        p.author.toLowerCase().includes(query)
+      );
+
+      window.renderPosts(filtered);
+    };
+
+    window.addEventListener('click', () => {
+      document.querySelectorAll('.menu-dropdown').forEach(d => d.style.display = 'none');
+    });
+
+    searchQuery.addEventListener('input', window.searchPosts);
+
+    window.changeGallerySort = (order) => {
+      window.gallerySortOrder = order;
+      window.searchPosts();
+    };
+
+    async function init() {
+      // Show skeletons
+      const skeletonCard = `
+        <div class="photo-card" style="border: none;">
+          <div class="skeleton" style="height: 11cm; border-radius: 1.25rem 1.25rem 0 0;"></div>
+          <div class="photo-details">
+            <div class="skeleton" style="height: 1.2rem; width: 70%; margin-bottom: 0.75rem; border-radius: 4px;"></div>
+            <div class="skeleton" style="height: 1rem; width: 90%; margin-bottom: 0.5rem; border-radius: 4px;"></div>
+            <div class="skeleton" style="height: 1rem; width: 40%; margin-bottom: 1rem; border-radius: 4px;"></div>
+            <div class="photo-actions">
+              <div class="skeleton" style="height: 2rem; width: 80px; border-radius: 0.6rem;"></div>
+              <div class="skeleton" style="height: 36px; width: 36px; border-radius: 50%;"></div>
+            </div>
+          </div>
+        </div>`;
+      galleryGrid.innerHTML = Array(4).fill(skeletonCard).join('');
+      galleryEmpty.classList.add('hidden');
+
+      await initApp();
+
+      const token = localStorage.getItem('bf_token');
+      if (!token) { window.location.href = 'auth.html'; return; }
+
+      // Small delay to appreciate the skeleton effect if loading is too fast
+      setTimeout(() => window.searchPosts(), 300);
+    }
+    init();
+  </script>
+</body>
+</html>

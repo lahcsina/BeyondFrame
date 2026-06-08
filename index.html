@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BeyondFrame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;600;800&family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="camera-logo.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="manifest" href="json/manifest.json" />
+</head>
+<body>
+  <!-- Startup Animation Overlay -->
+  <div id="startup-overlay" class="startup-overlay">
+    <div class="stars"></div>
+    <div class="moon"></div>
+    <div class="shooting-stars"></div>
+    <div class="earth-curve"></div>
+
+    <!-- Beach/Light Mode Elements -->
+    <div class="vignette"></div>
+    <div class="sky-glow"></div>
+    <div class="mist"></div>
+    <div class="mist mist-secondary"></div>
+    <div class="seabed"></div>
+    <div class="sun"></div>
+
+    <div class="cloud" style="top: 10%; left: 5%; width: 350px; height: 120px; animation-duration: 40s;"></div>
+    <div class="cloud" style="top: 22%; left: 55%; width: 500px; height: 160px; animation-duration: 55s; opacity: 0.3;"></div>
+    <div class="cloud" style="top: 5%; left: 40%; width: 300px; height: 90px; animation-duration: 30s; animation-delay: -10s;"></div>
+    <div class="cloud" style="top: 30%; left: 15%; width: 420px; height: 130px; animation-duration: 65s; opacity: 0.2;"></div>
+    <div class="cloud" style="top: 12%; left: 80%; width: 380px; height: 110px; animation-duration: 45s; animation-delay: -20s;"></div>
+
+    <div class="sea">
+      <div class="sunlight-reflection"></div>
+    </div>
+
+    <div class="shore-wave"><div class="shore-foam"></div></div>
+    <div class="shore-wave" style="animation-delay: -1.5s; opacity: 0.3; height: 30px;"></div>
+    <div class="beach"><div class="wet-sand"></div></div>
+
+    <div class="startup-title">BeyondFrame</div>
+    <button id="explore-btn" class="button explore-startup-btn">Explore</button>
+  </div>
+
+  <div id="home-content-wrapper" class="home-content-wrapper">
+    <header class="site-header">
+      <div class="brand">
+        <h1 onclick="window.location.href='index.html'" style="cursor:pointer">
+          <img src="camera-logo.svg" alt="Camera" class="header-logo" />
+          BeyondFrame
+        </h1>
+      </div>
+      <nav>
+        <a href="index.html" class="active">Home</a>
+        <a href="Gallery.html">Gallery</a>
+        <a href="submit.html">Submit</a>
+      </nav>
+    </header>
+
+    <section id="home" class="hero">
+      <div class="hero-copy">
+        <h2 class="hero-main-title">BeyondFrame</h2>
+        <p class="hero-tagline"><i>“Frame less. Feel more.”</i></p>
+      </div>
+
+      
+
+      <div class="search-row home-search-container">
+        <input id="home-search-query" type="search" placeholder="Search authors, titles, or descriptions..." />
+        <div class="sort-options">
+          <button class="menu-btn home-sort-btn" onclick="toggleModalMenu(event)" title="Sort Order">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18M7 12h10M10 18h4"/>
+            </svg>
+            <span>Sort</span>
+          </button>
+          <div class="menu-dropdown" style="top: calc(100% + 10px); right: 0;">
+            <button onclick="changeSort('newest')">Newest</button>
+            <button onclick="changeSort('most-liked')">Most Liked</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Uploader Profile Header -->
+      <div id="uploader-profile-header" class="about-section hidden" style="margin-bottom: 2rem; text-align: center; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 1.5rem; padding: 2rem;">
+        <div class="profile-avatar-container" style="margin-bottom: 1rem;">
+          <div class="avatar-wrapper" style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid var(--accent-color); overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; background: var(--bg-color);">
+            <img id="uploader-img" src="" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+            <div id="uploader-placeholder" style="font-size: 2rem; opacity: 0.3;">👤</div>
+          </div>
+        </div>
+        <h2 id="uploader-name" style="margin-bottom: 0.5rem;"></h2>
+        <div id="uploader-gender" style="margin-bottom: 1rem; opacity: 0.8; font-size: 0.9rem; font-weight: 600; color: var(--accent-color);"></div>
+        <p id="uploader-bio" style="max-width: 600px; margin: 0 auto; font-style: italic; font-size: 0.95rem; line-height: 1.6;"></p>
+      </div>
+
+      <div id="home-grid" class="hero-grid"></div>
+      <div id="pagination" class="pagination-controls">
+        <button id="prev-btn" class="button pagination-btn">Previous</button>
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span id="page-info" class="page-info">Page 1</span>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="opacity: 0.6; font-size: 0.85rem;">Jump to:</span>
+            <input type="number" id="jump-to-page" min="1" value="1" inputmode="numeric" style="width: 60px; padding: 0.4rem; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0.5rem; text-align: center; font-family: inherit;" />
+          </div>
+        </div>
+        <button id="next-btn" class="button pagination-btn">Next</button>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <p>© 2026 BeyondFrame. Capture moments, share scenes.</p>
+    </footer>
+  </div>
+
+  <script src="js/script.js"></script>
+  <script>
+    const homeGrid = document.getElementById('home-grid');
+    const paginationRow = document.getElementById('pagination');
+    const pageInfo = document.getElementById('page-info');
+    
+    let currentPage = 1;
+    const itemsPerPage = 50;
+    window.cachedPosts = [];
+    window.currentAuthorFilter = null;
+
+    async function renderHomePreview(filterAuthor = null, skipFetch = false) {
+      window.currentAuthorFilter = filterAuthor;
+
+      // Clean up previous ObjectURLs
+      homeGrid.querySelectorAll('img').forEach(img => {
+        if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+      });
+
+      if (!skipFetch) {
+        // Show detailed skeletons during fetch
+        const skeletonCard = `
+          <div class="hero-card" style="border: none;">
+            <div class="skeleton" style="height: 10cm; border-radius: 1.25rem 1.25rem 0 0;"></div>
+            <div class="photo-details">
+              <div class="meta">
+                <div class="skeleton" style="height: 1rem; width: 60%; margin-bottom: 1rem; border-radius: 4px;"></div>
+                <div class="card-actions">
+                  <div class="skeleton" style="height: 1.5rem; width: 50px; border-radius: 4px;"></div>
+                  <div class="skeleton" style="height: 1.5rem; width: 50px; border-radius: 4px;"></div>
+                  <div class="skeleton" style="height: 1.5rem; width: 50px; border-radius: 4px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        homeGrid.innerHTML = Array(5).fill(skeletonCard).join('');
+      }
+
+      const posts = (skipFetch && window.cachedPosts && window.cachedPosts.length) ? window.cachedPosts : await getAllPosts(window.currentSort);
+      const sortOrder = window.currentSort || 'newest';
+
+      let results = posts.slice();
+      if (sortOrder === 'newest') {
+        results.sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        });
+      } else if (sortOrder === 'most-liked') {
+        results.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+      }
+
+      if (window.currentAuthorFilter) {
+        results = results.filter(p => p.author === window.currentAuthorFilter);
+      }
+
+      const query = document.getElementById('home-search-query').value.toLowerCase();
+      if (query) {
+        results = results.filter(p => 
+          (p.title || '').toLowerCase().includes(query) || 
+          (p.description || '').toLowerCase().includes(query) || 
+          (p.author || '').toLowerCase().includes(query)
+        );
+      }
+      
+      window.cachedPosts = results;
+      const collections = await getAllCollections();
+      const savedIds = new Set(collections.flatMap(c => c.postIds));
+      homeGrid.innerHTML = '';
+      
+      const totalPages = Math.ceil(window.cachedPosts.length / itemsPerPage);
+      const start = (currentPage - 1) * itemsPerPage;
+      const end = start + itemsPerPage;
+      const previewPosts = window.cachedPosts.slice(start, end);
+
+      paginationRow.classList.remove('hidden');
+      const totalPagesSafe = totalPages || 1;
+      pageInfo.textContent = `Page ${currentPage} of ${totalPagesSafe}`;
+      const jumpInput = document.getElementById('jump-to-page');
+      jumpInput.value = currentPage;
+      jumpInput.max = totalPagesSafe;
+
+      if (!previewPosts.length) {
+        homeGrid.innerHTML = '<p class="home-preview-empty">No community photos yet. Upload the first scene to share.</p>';
+        return;
+      }
+
+      previewPosts.forEach((post) => {
+        const card = document.createElement('article');
+        card.className = 'hero-card';
+        const reviews = post.reviews || [];
+        const isSaved = savedIds.has(post.id);
+
+        const currentUser = localStorage.getItem('bf_username');
+        const isOwner = currentUser === post.author;
+
+        // Ensure images is a real array before rendering UI elements like the counter
+        const images = post.imageData || [];
+
+        let currentImgIndex = 0;
+
+        const getImgUrl = (idx) => {
+          const data = Array.isArray(images) ? images[idx] : images;
+          return window.resolveImgUrl(data);
+        };
+
+        const initialSrc = getImgUrl(0);
+        const isVideo = post.mediaType === 'video';
+        const bookmarkIcon = `
+          <svg class="bookmark-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>`;
+        const heartIcon = `
+          <svg class="heart-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.78-8.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>`;
+
+        card.innerHTML = `
+          <div class="card-image-container">
+            <div class="media-badge">
+              ${isVideo ? 
+                `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>` : 
+                (images.length > 1 ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21 6H9c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/><path d="M5 18H3V4c0-1.1.9-2 2-2h10v2H5v14z"/></svg>` : 
+                `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`)
+              }
+            </div>
+            <div class="options-container">
+              <button class="menu-btn" title="Options">
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle>
+                </svg>
+              </button>
+              <div class="menu-dropdown">
+                <button onclick="editPost('${post.id}')" style="${isOwner ? '' : 'display:none;'}">Edit</button>
+                <button onclick="sharePost('${post.id}')">Share</button>
+                <button class="download-btn" onclick="downloadPost('${post.id}', ${currentImgIndex})">Download</button>
+                <button onclick="deletePostUI('${post.id}')" style="color:#ff4d4d; ${isOwner ? '' : 'display:none;'}">Delete</button>
+              </div>
+            </div>
+            ${images.length > 1 ? `
+              <button class="slider-nav-btn prev"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+              <button class="slider-nav-btn next"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+              <div class="image-counter">1 / ${images.length}</div>
+              <div class="card-dots">${images.map((_, i) => `<span class="dot ${i === 0 ? 'active' : ''}"></span>`).join('')}</div>
+            ` : ''}
+            ${isVideo ? 
+              `<video src="${initialSrc}" autoplay loop muted playsinline style="width:100%; height:10cm; object-fit:cover; cursor:pointer;"></video>` :
+              `<img alt="${post.title}" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiM0NDQiLz48Y2lyY2xlIGN4PSIxMDAiIGN5PSI3MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzk5OSIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHBhdGggZD0iTTEwMCAxMDBsMzAgMzAgLTMwIDMwIC0zMCAtMzAgMzAgLTMwWiIgZmlsbD0iIzk5OSIvPjxwYXRoIGQ9Ik01MCAxNTBoMTAwIiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+'"/>`
+            }
+          </div>
+          <div class="photo-details">
+            <div class="meta">
+              <span>By <span class="uploader-link" onclick="filterByUploader('${escapeHTML(post.author)}')">${escapeHTML(post.author)}</span></span>
+              <div class="card-actions">
+                <button class="action-btn ${post.userLiked ? 'liked' : ''}" onclick="toggleLike('${post.id}')">${heartIcon} ${post.likes || 0}</button>
+                <button class="action-btn" onclick="openCommentModal('${post.id}')">
+                  <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                  </svg>
+                  ${calculateTotalComments(post)}
+                </button>
+                <button class="action-btn ${isSaved ? 'saved' : ''}" onclick="openSaveModal('${post.id}')" title="Save to Collection">${bookmarkIcon}</button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const mediaEl = card.querySelector('img, video');
+        mediaEl.src = initialSrc; // Safe property assignment
+        const counterEl = card.querySelector('.image-counter');
+        const dots = card.querySelectorAll('.card-dots .dot');
+        const downloadBtn = card.querySelector('.download-btn');
+        const menuBtn = card.querySelector('.menu-btn');
+        const dropdown = card.querySelector('.menu-dropdown');
+
+        // Toggle the options menu
+        menuBtn.onclick = (e) => {
+          e.stopPropagation();
+          dropdown.style.display = dropdown.style.display === 'flex' ? 'none' : 'flex';
+        };
+
+        // Album slider logic
+        const cardImageContainer = card.querySelector('.card-image-container');
+        if (images.length > 1 && cardImageContainer) {
+          addSwipeListeners(cardImageContainer,
+            () => { // onSwipeLeft
+              currentImgIndex = (currentImgIndex + 1) % images.length;
+              const newSrc = getImgUrl(currentImgIndex);
+              mediaEl.src = newSrc;
+              if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+              if (downloadBtn) downloadBtn.onclick = () => downloadPost(post.id, currentImgIndex);
+              counterEl.textContent = `${currentImgIndex + 1} / ${images.length}`;
+              if (dots.length) { dots.forEach(d => d.classList.remove('active')); dots[currentImgIndex].classList.add('active'); }
+            },
+            () => { // onSwipeRight
+              currentImgIndex = (currentImgIndex - 1 + images.length) % images.length;
+              const newSrc = getImgUrl(currentImgIndex);
+              mediaEl.src = newSrc;
+              if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+              if (downloadBtn) downloadBtn.onclick = () => downloadPost(post.id, currentImgIndex);
+              counterEl.textContent = `${currentImgIndex + 1} / ${images.length}`;
+              if (dots.length) { dots.forEach(d => d.classList.remove('active')); dots[currentImgIndex].classList.add('active'); }
+            }
+          );
+        }
+        if (images.length > 1) {
+          card.querySelector('.next').onclick = (e) => {
+            e.stopPropagation();
+            currentImgIndex = (currentImgIndex + 1) % images.length;
+            const newSrc = getImgUrl(currentImgIndex);
+            mediaEl.src = newSrc;
+            if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+            if (downloadBtn) downloadBtn.onclick = () => downloadPost(post.id, currentImgIndex);
+            counterEl.textContent = `${currentImgIndex + 1} / ${images.length}`;
+            if (dots.length) { dots.forEach(d => d.classList.remove('active')); dots[currentImgIndex].classList.add('active'); }
+          };
+          card.querySelector('.prev').onclick = (e) => {
+            e.stopPropagation();
+            currentImgIndex = (currentImgIndex - 1 + images.length) % images.length;
+            const newSrc = getImgUrl(currentImgIndex);
+            mediaEl.src = newSrc;
+            if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+            if (downloadBtn) downloadBtn.onclick = () => downloadPost(post.id, currentImgIndex);
+            counterEl.textContent = `${currentImgIndex + 1} / ${images.length}`;
+            if (dots.length) { dots.forEach(d => d.classList.remove('active')); dots[currentImgIndex].classList.add('active'); }
+          };
+
+          dots.forEach((dot, i) => {
+            dot.onclick = (e) => {
+              e.stopPropagation();
+              currentImgIndex = i;
+              const newSrc = getImgUrl(currentImgIndex);
+              mediaEl.src = newSrc;
+              if (mediaEl.tagName === 'VIDEO') mediaEl.load();
+              if (downloadBtn) downloadBtn.onclick = () => downloadPost(post.id, currentImgIndex);
+              counterEl.textContent = `${currentImgIndex + 1} / ${images.length}`;
+              dots.forEach(d => d.classList.remove('active'));
+              dot.classList.add('active');
+            };
+          });
+        }
+
+        // Fix for fullscreen modal
+        mediaEl.onclick = () => {
+          openModal(images, currentImgIndex, post.title, post.description, `Posted by ${post.author}`, post.id, post.author, null, post.mediaType);
+        };
+
+        homeGrid.appendChild(card);
+      });
+
+      document.getElementById('prev-btn').disabled = currentPage === 1;
+      document.getElementById('next-btn').disabled = currentPage === totalPages;
+
+      // Close dropdowns when clicking anywhere else
+      window.addEventListener('click', () => {
+        document.querySelectorAll('.menu-dropdown').forEach(d => d.style.display = 'none');
+      });
+    }
+
+    async function filterByUploader(author) {
+      currentPage = 1;
+
+      // Fetch uploader info from the new public endpoint
+      try {
+        const res = await fetch(`${API_URL}/users/${author}`);
+        if (res.ok) {
+          const userData = await res.json();
+          const header = document.getElementById('uploader-profile-header');
+          const img = document.getElementById('uploader-img');
+          const placeholder = document.getElementById('uploader-placeholder');
+          
+          document.getElementById('uploader-name').textContent = userData.username;
+          document.getElementById('uploader-gender').textContent = userData.gender || 'Not specified';
+          document.getElementById('uploader-bio').textContent = userData.bio || '';
+          
+          if (userData.profile_pic) {
+            img.src = window.resolveImgUrl(userData.profile_pic);
+            img.style.display = 'block';
+            placeholder.style.display = 'none';
+          } else {
+            img.style.display = 'none';
+            placeholder.style.display = 'block';
+          }
+          header.classList.remove('hidden');
+        }
+      } catch (err) { console.error("Failed to fetch uploader info", err); }
+
+      renderHomePreview(author);
+      if(!document.getElementById('clear-filter')) {
+        const btn = document.createElement('button');
+        btn.id = 'clear-filter';
+        btn.className = 'button';
+        btn.style.display = 'block';
+        btn.style.margin = '1rem auto';
+        btn.textContent = 'Clear Filter';
+        btn.onclick = () => { 
+          btn.remove(); 
+          window.cachedPosts = []; 
+          document.getElementById('uploader-profile-header').classList.add('hidden');
+          renderHomePreview(); 
+        };
+        homeGrid.parentNode.insertBefore(btn, homeGrid);
+      }
+    }
+
+    async function init() {
+      // Startup Animation Logic
+      const exploreBtn = document.getElementById('explore-btn');
+      const overlay = document.getElementById('startup-overlay');
+      const content = document.getElementById('home-content-wrapper');
+
+      // If the animation was already shown in this session, hide it immediately
+      if (sessionStorage.getItem('startupDone')) {
+        overlay.classList.add('fade-out');
+        overlay.style.display = 'none';
+        content.classList.add('no-animation');
+      }
+      
+      // Shooting Star Spawning Logic
+      function spawnShootingStars() {
+        if (sessionStorage.getItem('startupDone') || document.documentElement.classList.contains('light-mode')) return;
+        
+        const count = Math.floor(Math.random() * 5) + 1; // 1 to 5 stars
+        const container = document.querySelector('.shooting-stars');
+        
+        for (let i = 0; i < count; i++) {
+          // Stagger individual stars within the burst
+          setTimeout(() => {
+            const star = document.createElement('div');
+            star.className = 'shooting-star';
+            star.style.top = `${Math.random() * 50 - 20}%`; // Random Y origin
+            star.style.left = `${Math.random() * 40 + 60}%`; // Random X origin (right side)
+            container.appendChild(star);
+            star.addEventListener('animationend', () => star.remove());
+          }, Math.random() * 1500);
+        }
+      }
+
+      // Trigger first burst immediately
+      spawnShootingStars();
+      const starInterval = setInterval(spawnShootingStars, 4000);
+
+      // Attach the explore button listener immediately so it's responsive while data loads
+      exploreBtn.addEventListener('click', () => {
+        clearInterval(starInterval);
+        overlay.classList.add('fade-out');
+        
+        setTimeout(() => {
+          overlay.style.display = 'none';
+          content.classList.add('visible');
+          sessionStorage.setItem('startupDone', 'true');
+        }, 800);
+      });
+
+      exploreBtn.classList.add('loading');
+      await initApp();
+      exploreBtn.classList.remove('loading');
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const userFilter = urlParams.get('user');
+      if (userFilter) {
+        filterByUploader(userFilter);
+      } else {
+        renderHomePreview();
+      }
+
+      document.getElementById('home-search-query').addEventListener('input', () => {
+        currentPage = 1;
+        renderHomePreview(window.currentAuthorFilter);
+      });
+
+      window.currentSort = 'newest';
+      window.changeSort = (order) => {
+        window.currentSort = order;
+        currentPage = 1;
+        renderHomePreview(window.currentAuthorFilter);
+      };
+      const sortSel = document.getElementById('sort-order');
+      if (sortSel) {
+        sortSel.value = window.currentSort;
+        sortSel.addEventListener('change', (e) => { window.changeSort(e.target.value); });
+      }
+
+      document.getElementById('jump-to-page').addEventListener('change', (e) => {
+        const val = parseInt(e.target.value, 10);
+        const totalPages = Math.ceil(window.cachedPosts.length / itemsPerPage);
+        const totalPagesSafe = totalPages || 1;
+        if (val >= 1 && val <= totalPagesSafe) {
+          currentPage = val;
+          renderHomePreview(window.currentAuthorFilter);
+          window.scrollTo(0,0);
+        } else {
+          e.target.value = currentPage;
+        }
+      });
+
+      document.getElementById('prev-btn').addEventListener('click', () => {
+        if (currentPage > 1) { currentPage--; renderHomePreview(window.currentAuthorFilter); window.scrollTo(0,0); }
+      });
+
+      document.getElementById('next-btn').addEventListener('click', () => {
+        const totalPages = Math.ceil(window.cachedPosts.length / itemsPerPage);
+        if (currentPage < totalPages) { currentPage++; renderHomePreview(window.currentAuthorFilter); window.scrollTo(0,0); }
+      });
+    }
+
+    init();
+  </script>
+
+  <!-- SVG Filter for Wave Edges -->
+  <svg style="position: absolute; width: 0; height: 0;">
+    <filter id="irregular-filter">
+      <feTurbulence type="fractalNoise" baseFrequency="0.015 0.1" numOctaves="3" result="noise">
+        <animate attributeName="seed" from="1" to="100" dur="20s" repeatCount="indefinite" />
+      </feTurbulence>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="30" />
+    </filter>
+  </svg>
+</body>
+</html>

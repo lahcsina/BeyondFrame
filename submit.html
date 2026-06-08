@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Post an Image - BeyondFrame</title>
+  <link rel="icon" type="image/svg+xml" href="camera-logo.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="manifest" href="json/manifest.json" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <h1><img src="camera-logo.svg" alt="Camera" class="header-logo" /> BeyondFrame</h1>
+    </div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="Gallery.html">Gallery</a>
+      <a href="submit.html" class="active">Submit</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="submit" class="submit-section">
+      <div class="submit-card">
+        <h2>Post an image</h2>
+        <p>Share your favorite scene with the community.</p>
+        <form id="submit-form">
+          <label for="title">Photo title</label>
+          <input type="text" id="title" name="title" placeholder="Title for your photo" required />
+          <label for="description">Description</label>
+          <textarea id="description" name="description" rows="4" placeholder="Describe the scene" required></textarea>
+          <label for="photo">Choose image or video files (MP4/WebM)</label>
+          <input type="file" id="photo" name="photo" accept="image/*,video/mp4,video/webm" multiple required max="20" />
+          <div class="file-note">Select photos or videos (MP4/WebM, max 40MB). Maximum 20 files.</div>
+          <div class="photo-preview hidden">
+            <p>Selected image preview:</p>
+            <div class="photo-preview-grid"></div>
+          </div>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 BeyondFrame. Capture moments, share scenes.</p>
+  </footer>
+
+  <script src="js/script.js"></script>
+  <script>
+    const submitForm = document.getElementById('submit-form');
+    const photoInput = document.getElementById('photo');
+    const previewWrapper = document.querySelector('.photo-preview');
+    const previewGrid = document.querySelector('.photo-preview-grid');
+    let previewUrls = [];
+
+    photoInput.addEventListener('change', () => {
+      const files = photoInput.files;
+      if (!files || !files.length) {
+        previewWrapper.classList.add('hidden');
+        return;
+      }
+      
+      // Clean up memory from old previews
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+      previewUrls = [];
+      previewWrapper.classList.remove('hidden');
+      previewGrid.innerHTML = '';
+
+      Array.from(files).forEach(file => {
+        const url = URL.createObjectURL(file);
+        previewUrls.push(url);
+        const div = document.createElement('div');
+        div.className = 'preview-item';
+        if (file.type.startsWith('video/')) {
+          const video = document.createElement('video');
+          video.src = url;
+          video.muted = true;
+          div.appendChild(video);
+        } else {
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = "Preview";
+          div.appendChild(img);
+        }
+        previewGrid.appendChild(div);
+      });
+    });
+
+    submitForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (typeof db === 'undefined') {
+        showToast("Database is still initializing...", "info");
+        return;
+      }
+
+      const name = getCurrentUser();
+      const title = document.getElementById('title').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const files = photoInput.files;
+      
+      const editId = submitForm.dataset.editId;
+      const existingData = submitForm.dataset.existingData ? JSON.parse(submitForm.dataset.existingData) : null;
+
+      if (files.length > 20) {
+        showToast('Maximum 20 images per album.', 'error');
+        return;
+      }
+
+      let mediaType = 'image';
+      for (let file of files) {
+        if (file.type.startsWith('video/')) {
+          mediaType = 'video';
+          if (file.size > 40 * 1024 * 1024) {
+            showToast(`Video "${file.name}" is too large (>40MB).`, 'error');
+            return;
+          }
+        } else {
+          if (file.size > 30 * 1024 * 1024) {
+            showToast(`Image "${file.name}" is too large (>30MB).`, 'error');
+            return;
+          }
+        }
+      }
+
+      const submitBtn = submitForm.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Processing...';
+
+      let finalImageData = existingData ? existingData.imageData : [];
+      
+      // Only compress and update images if new ones were selected
+      if (files.length > 0 && mediaType === 'image') {
+        finalImageData = await Promise.all(Array.from(files).map(file => compressImage(file)));
+      } else if (files.length > 0 && mediaType === 'video') {
+        // For now, we store videos as-is (Base64 is dangerous, but we'll stick to logic for now)
+        finalImageData = await Promise.all(Array.from(files).map(file => readFileAsDataURL(file)));
+      }
+
+      const newPost = {
+        id: editId || `post-${Date.now()}`,
+        title,
+        description,
+        author: name,
+        imageData: finalImageData,
+        mediaType,
+        createdAt: existingData ? existingData.createdAt : new Date().toISOString(),
+        likes: existingData ? (existingData.likes || 0) : 0,
+        reviews: existingData ? (existingData.reviews || []) : [],
+        userLiked: existingData ? existingData.userLiked : false
+      };
+
+      try {
+        await addPost(newPost);
+        showToast('Successfully uploaded!', 'success');
+        window.location.href = 'Gallery.html';
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit';
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await initApp();
+
+      const token = localStorage.getItem('bf_token');
+      if (!token) {
+        window.location.href = 'auth.html';
+        return;
+      }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const editId = urlParams.get('edit');
+
+      if (editId) {
+        const posts = await getAllPosts();
+        const post = posts.find(p => p.id === editId);
+        if (post) {
+          // Update UI for Edit Mode
+          document.querySelector('.submit-card h2').textContent = 'Edit your scene';
+          submitForm.querySelector('button[type="submit"]').textContent = 'Update Scene';
+          photoInput.required = false; // Allow keeping old photos
+          document.querySelector('.file-note').textContent = 'Select new photos only if you want to replace the current album.';
+
+          // Pre-fill form
+          document.getElementById('title').value = post.title;
+          document.getElementById('description').value = post.description;
+
+          // Show existing previews
+          const images = Array.isArray(post.imageData) ? post.imageData : [post.imageData];
+          previewWrapper.classList.remove('hidden');
+          previewGrid.innerHTML = '';
+          images.forEach(data => {
+            const url = window.resolveImgUrl(data);
+            const div = document.createElement('div');
+            div.className = 'preview-item';
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = "Current";
+            div.appendChild(img);
+            previewGrid.appendChild(div);
+          });
+
+          // Store context for submission
+          submitForm.dataset.editId = editId;
+          submitForm.dataset.existingData = JSON.stringify({
+            createdAt: post.createdAt,
+            likes: post.likes,
+            reviews: post.reviews,
+            userLiked: post.userLiked,
+            imageData: post.imageData
+          });
+        }
+      }
+    });
+  </script>
+</body>
+</html>

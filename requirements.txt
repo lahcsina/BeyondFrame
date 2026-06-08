@@ -1,0 +1,9 @@
+Flask
+PyJWT
+bcrypt
+python-dotenv
+psycopg2-binary
+waitress
+Pillow
+nudenet
+

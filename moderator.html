@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Moderator Panel - BeyondFrame</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="brand"><h1>Content Moderator</h1></div>
+        <nav><a href="index.html">Home</a></nav>
+    </header>
+    <main class="gallery-section">
+        <h2>Review All Posts</h2>
+        <div class="search-row" style="margin-bottom: 2rem;">
+            <input id="mod-search" type="search" placeholder="Search by title or author..." style="width: 100%;" />
+        </div>
+        <div id="mod-grid" class="gallery-grid"></div>
+    </main>
+    <script src="js/script.js"></script>
+    <script>
+        let allModPosts = [];
+
+        async function loadAllPosts() {
+            allModPosts = await getAllPosts();
+            renderModPosts(allModPosts);
+        }
+
+        function renderModPosts(posts) {
+            const grid = document.getElementById('mod-grid');
+            grid.innerHTML = '';
+            
+            posts.forEach(p => {
+                const card = document.createElement('article');
+                card.className = 'photo-card';
+                
+                const images = p.imageData || [];
+                const initialSrc = window.resolveImgUrl(images[0]);
+                const isVideo = p.mediaType === 'video';
+
+                card.innerHTML = `
+                    <div class="card-image-container" style="height: 10cm;">
+                        <div class="media-badge">
+                          ${isVideo ? 
+                            `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>` : 
+                            (images.length > 1 ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21 6H9c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/><path d="M5 18H3V4c0-1.1.9-2 2-2h10v2H5v14z"/></svg>` : 
+                            `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`)
+                          }
+                        </div>
+                        ${isVideo ? 
+                          `<video src="${initialSrc}" autoplay loop muted playsinline style="width:100%; height:10cm; object-fit:cover;"></video>` :
+                          `<img alt="${window.escapeHTML(p.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiM0NDQiLz48Y2lyY2xlIGN4PSIxMDAiIGN5PSI3MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzk5OSIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHBhdGggZD0iTTEwMCAxMDBsMzAgMzAgLTMwIDMwIC0zMCAtMzAgMzAgLTMwWiIgZmlsbD0iIzk5OSIvPjxwYXRoIGQ9Ik01MCAxNTBoMTAwIiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+'"/>`
+                        }
+                    </div>
+                    <div class="photo-details">
+                        <h3>${window.escapeHTML(p.title)}</h3>
+                        <p>By ${window.escapeHTML(p.author)}</p>
+                        <button class="button" style="background:#ff4d4d; width:100%" onclick="modDeletePost('${p.id}')">Remove Content</button>
+                    </div>
+                `;
+
+                const mediaEl = card.querySelector('img, video');
+                mediaEl.src = initialSrc; // Safe property assignment
+                
+                grid.appendChild(card);
+            });
+        }
+
+        document.getElementById('mod-search').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = allModPosts.filter(p => 
+                p.title.toLowerCase().includes(query) || 
+                p.author.toLowerCase().includes(query)
+            );
+            renderModPosts(filtered);
+        });
+
+        async function modDeletePost(id) {
+            if (!(await window.customConfirm('Remove Content', 'Are you sure you want to remove this post for violating community standards? This action cannot be undone.', 'Remove', 'danger'))) return;
+            const res = await fetch(`${API_URL}/posts/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('bf_token')}` }
+            });
+            if (res.ok) {
+                showToast('Post removed', 'info');
+                loadAllPosts();
+            }
+        }
+
+        window.onload = async () => {
+            const token = localStorage.getItem('bf_token');
+            const payload = parseJwt(token);
+            if (!payload || (payload.role !== 'moderator' && payload.role !== 'admin')) {
+                window.location.href = 'index.html';
+            } else {
+                await initApp(); // Correctly initialize UI, Modals, and Theme
+                loadAllPosts();
+            }
+        };
+    </script>
+</body>
+</html>

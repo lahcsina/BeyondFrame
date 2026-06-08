@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Admin Dashboard - BeyondFrame</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="brand"><h1>Admin Panel</h1></div>
+        <nav><a href="index.html">Home</a></nav>
+    </header>
+    <main>
+        <section class="gallery-section">
+            <div class="gallery-tabs">
+                <button id="tab-users" class="tab-btn active" onclick="switchAdminTab('users')">User Management</button>
+                <button id="tab-feedback" class="tab-btn" onclick="switchAdminTab('feedback')">Community Feedback</button>
+                <button id="tab-settings" class="tab-btn" onclick="switchAdminTab('settings')">Settings</button>
+            </div>
+
+            <div id="users-view" class="admin-view">
+                <h2>User Management</h2>
+                <div class="search-row" style="margin-bottom: 2rem; display: flex; align-items: center; gap: 1.5rem;">
+                    <input id="admin-search" type="search" placeholder="Search by username or email..." style="flex: 1;" />
+                    <label for="filter-active" style="display: inline-flex; align-items: center; gap: 0.6rem; cursor: pointer; font-weight: 600; white-space: nowrap; user-select: none;">
+                        <input type="checkbox" id="filter-active"> Show Active Only
+                    </label>
+                </div>
+                <div class="admin-content-overflow">
+                    <table style="width:100%; border-collapse: collapse; margin-top: 2rem;">
+                        <thead style="border-bottom: 2px solid var(--border-color); text-align: left;">
+                            <tr>
+                                <th style="padding: 1rem;">Username</th>
+                                <th style="padding: 1rem;">Role</th>
+                                <th style="padding: 1rem;">Activity</th>
+                                <th style="padding: 1rem;">Status</th>
+                                <th style="padding: 1rem;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="feedback-view" class="admin-view hidden" style="opacity: 0; transform: translateY(10px);">
+                <h2>Community Feedback</h2>
+                <div id="feedback-list" style="margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem;"></div>
+            </div>
+
+            <div id="settings-view" class="admin-view hidden" style="opacity: 0; transform: translateY(10px);">
+                <div class="hero-copy" style="text-align: center; margin-bottom: 3rem;">
+                    <h2 style="font-size: 2.5rem;">Platform Settings</h2>
+                    <p>Global controls for BeyondFrame.</p>
+                </div>
+                <div class="submit-card" style="max-width: 600px; margin: 0 auto; text-align: left;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid var(--border-color);">
+                        <div><h3 style="margin: 0;">Maintenance Mode</h3><p style="margin: 0.5rem 0 0; font-size: 0.9rem; opacity: 0.7;">Restrict access to administrators only.</p></div>
+                        <button id="toggle-maintenance" class="button" onclick="toggleMaintenanceMode()">Checking...</button>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem;">
+                        <div><h3 style="margin: 0;">Feedback Portal</h3><p style="margin: 0.5rem 0 0; font-size: 0.9rem; opacity: 0.7;">Allow users to submit platform feedback.</p></div>
+                        <button id="toggle-feedback" class="button" onclick="toggleFeedbackMode()">Checking...</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/script.js"></script>
+    <script>
+        let allUsers = [];
+        let allFeedback = [];
+        let feedbackIdToDelete = null;
+
+        async function loadUsers() {
+            const res = await fetch(`${API_URL}/admin/users`, {
+                headers: window.getAuthHeaders()
+            });
+            allUsers = await res.json();
+            if (document.getElementById('filter-active').checked) {
+                applyFilters();
+            } else {
+                renderUsers(allUsers);
+            }
+        }
+
+        async function loadFeedback() {
+            const res = await fetch(`${API_URL}/admin/feedback`, {
+                headers: window.getAuthHeaders()
+            });
+            allFeedback = await res.json();
+            renderFeedback(allFeedback);
+        }
+
+        function renderFeedback(feedback) {
+            const list = document.getElementById('feedback-list');
+            if (!feedback.length) {
+                list.innerHTML = '<p style="opacity:0.6; font-style:italic;">No feedback received yet.</p>';
+                return;
+            }
+            list.innerHTML = feedback.map(f => `
+                <div class="submit-card" style="max-width: 100%; text-align: left; padding: 1.5rem; margin: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                        <span style="font-weight: 700; color: var(--accent-color);">${window.escapeHTML(f.username || 'Guest')}</span>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="font-size: 0.8rem; opacity: 0.6;">${f.createdAt ? new Date(f.createdAt.replace(' ', 'T') + 'Z').toLocaleString() : ''}</span>
+                            <button class="delete-photo-btn" style="width: 32px; height: 32px;" onclick="deleteFeedback('${f.id}')" title="Delete Feedback">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div style="line-height: 1.6; white-space: pre-wrap; font-size: 0.95rem;">${window.escapeHTML(f.message)}</div>
+                </div>
+            `).join('');
+        }
+
+        async function switchAdminTab(type) {
+            const views = {
+                users: { view: document.getElementById('users-view'), tab: document.getElementById('tab-users') },
+                settings: { view: document.getElementById('settings-view'), tab: document.getElementById('tab-settings') },
+                feedback: { view: document.getElementById('feedback-view'), tab: document.getElementById('tab-feedback') }
+            };
+
+            Object.values(views).forEach(item => {
+                item.view.style.opacity = '0';
+                item.view.style.transform = 'translateY(10px)';
+                item.view.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                item.tab.classList.remove('active');
+            });
+
+            setTimeout(() => {
+                Object.keys(views).forEach(k => {
+                    if (k === type) {
+                        views[k].view.classList.remove('hidden');
+                        views[k].tab.classList.add('active');
+                        void views[k].view.offsetWidth;
+                        views[k].view.style.opacity = '1';
+                        views[k].view.style.transform = 'translateY(0)';
+                    } else {
+                        views[k].view.classList.add('hidden');
+                    }
+                });
+                if (type === 'settings') { updateMaintenanceToggleUI(); updateFeedbackToggleUI(); }
+                if (type === 'feedback') { loadFeedback(); }
+            }, 400);
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('user-table-body');
+            
+            const parseLastSeen = (lastSeen) => {
+                if (!lastSeen) return null;
+                if (typeof lastSeen === 'string') {
+                    let normalized = lastSeen.trim();
+                    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(normalized)) {
+                        normalized = normalized.replace(' ', 'T') + 'Z';
+                    } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(normalized)) {
+                        normalized = normalized + 'Z';
+                    }
+                    const date = new Date(normalized);
+                    return isNaN(date) ? null : date;
+                }
+                if (lastSeen instanceof Date) return lastSeen;
+                const date = new Date(lastSeen);
+                return isNaN(date) ? null : date;
+            };
+
+            const getUserPresence = (user) => {
+                if (user.is_online === true || user.is_online === 't') {
+                    return '<span style="color:#4dabf7">Active</span>';
+                }
+                const lastDate = parseLastSeen(user.last_seen);
+                if (!lastDate) return '<span style="opacity:0.5">Inactive</span>';
+                const now = new Date();
+                const diffInSeconds = (now - lastDate) / 1000;
+
+                if (diffInSeconds < 60) {
+                    return '<span style="color:#4dabf7">Active</span>';
+                }
+                return '<span style="opacity:0.5">Inactive</span>';
+            };
+
+            tbody.innerHTML = users.map(u => {
+                const presence = getUserPresence(u);
+                return `
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 1rem;" data-label="User">${u.username}</td>
+                    <td style="padding: 1rem;" data-label="Role">${u.role}</td>
+                    <td style="padding: 1rem;" data-label="Activity">${presence}</td>
+                    <td style="padding: 1rem;" data-label="Status">${u.is_blocked ? '<span style="color:#ff4d4d">Blocked</span>' : '<span style="color:#40c057">Unblocked</span>'}</td>
+                    <td style="padding: 1rem;" data-label="Actions">
+                        <button class="button" style="padding: 0.4rem 0.8rem; background: #ff4d4d; color: white;" onclick="deleteUser('${u.id}')" title="Delete User">Delete</button>
+                        ${u.role !== 'admin' ? 
+                          `<button class="button" style="padding: 0.4rem 0.8rem; background: var(--accent-color);" onclick="toggleModerator('${u.id}', '${u.role}')">${u.role === 'moderator' ? 'Remove Mod' : 'Promote Mod'}</button>
+                           <button class="button" style="padding: 0.4rem 0.8rem; background: ${u.is_blocked ? '#40c057' : '#e67e22'};" onclick="toggleBlock('${u.id}', ${u.is_blocked})">${u.is_blocked ? 'Unblock' : 'Block User'}</button>` 
+                        : ''}
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function applyFilters() {
+            const query = document.getElementById('admin-search').value.toLowerCase();
+            const onlyActive = document.getElementById('filter-active').checked;
+            const now = new Date();
+
+            const parseLastSeen = (lastSeen) => {
+                if (!lastSeen) return null;
+                if (typeof lastSeen === 'string') {
+                    let normalized = lastSeen.trim();
+                    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(normalized)) {
+                        normalized = normalized.replace(' ', 'T') + 'Z';
+                    } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(normalized)) {
+                        normalized = normalized + 'Z';
+                    }
+                    const date = new Date(normalized);
+                    return isNaN(date) ? null : date;
+                }
+                if (lastSeen instanceof Date) return lastSeen;
+                const date = new Date(lastSeen);
+                return isNaN(date) ? null : date;
+            };
+
+            const filtered = allUsers.filter(u => {
+                const matchesSearch = u.username.toLowerCase().includes(query) || 
+                                     u.email.toLowerCase().includes(query);
+                if (!onlyActive) return matchesSearch;
+
+                if (u.is_online === true || u.is_online === 't') {
+                    return matchesSearch;
+                }
+
+                const lastDate = parseLastSeen(u.last_seen);
+                if (!lastDate) return false;
+                const diffInSeconds = (now - lastDate) / 1000;
+                return matchesSearch && diffInSeconds < 60;
+            });
+
+            renderUsers(filtered);
+        }
+
+        document.getElementById('admin-search').addEventListener('input', applyFilters);
+        document.getElementById('filter-active').addEventListener('change', applyFilters);
+
+        window.deleteUser = async function(id) {
+            if (!(await window.customConfirm('Delete User', 'Permanently delete this user and all their data?', 'Delete User', 'danger'))) return;
+            await fetch(`${API_URL}/admin/users/${id}`, {
+                method: 'DELETE',
+                headers: window.getAuthHeaders()
+            });
+            loadAdminStats(); // Refresh count after deletion
+            loadUsers();
+        }
+
+        window.deleteFeedback = async function(id) {
+            if (!(await window.customConfirm('Delete Feedback', 'This entry will be permanently permanently removed from the community reviews. This action cannot be undone.', 'Delete', 'danger'))) return;
+            // No need for feedbackIdToDelete global, pass id directly
+            await fetch(`${API_URL}/admin/feedback/${id}`, {
+                method: 'DELETE',
+                headers: window.getAuthHeaders()
+            });
+            loadFeedback();
+        }
+
+        window.toggleModerator = async function(id, currentRole) {
+            const newRole = currentRole === 'moderator' ? 'user' : 'moderator';
+            const action = newRole === 'moderator' ? 'Promote' : 'Remove';
+            const title = newRole === 'moderator' ? 'Promote to Moderator?' : 'Revoke Permissions?';
+            const msg = newRole === 'moderator' 
+                ? 'Granting moderator access allows this user to remove content violating community standards.' 
+                : 'Revoking permissions will return this user to standard community member status.';
+            
+            if (!(await window.customConfirm(title, msg, action, newRole === 'moderator' ? 'info' : 'warning'))) return;
+
+            await fetch(`${API_URL}/admin/users/${id}/role`, {
+                method: 'PATCH',
+                headers: { 
+                    ...window.getAuthHeaders()
+                },
+                body: JSON.stringify({ role: newRole })
+            });
+            loadUsers();
+        }
+
+        async function toggleBlock(id, currentlyBlocked) {
+            const action = currentlyBlocked ? 'unblock' : 'block';
+            if (!(await window.customConfirm(`${action === 'block' ? 'Block User' : 'Unblock User'}`, `Are you sure you want to ${action} this user?`, action === 'block' ? 'Block' : 'Unblock', action === 'block' ? 'danger' : 'info'))) return;
+            await fetch(`${API_URL}/admin/users/${id}/block`, {
+                method: 'PATCH',
+                headers: { 
+                    ...window.getAuthHeaders()
+                },
+                body: JSON.stringify({ is_blocked: currentlyBlocked ? 0 : 1 })
+            });
+            loadUsers();
+            if (window.loadAdminStats) loadAdminStats();
+        }
+
+        window.onload = async () => {
+            const token = localStorage.getItem('bf_token');
+            const payload = parseJwt(token);
+            if (!payload || payload.role !== 'admin') {
+                window.location.href = 'index.html';
+            } else {
+                await initApp(); // Initialize theme, nav roles, and admin stats
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('tab') === 'feedback') {
+                    switchAdminTab('feedback');
+                } else {
+                    loadUsers();
+                }
+                updateMaintenanceToggleUI();
+                updateFeedbackToggleUI();
+                // Refresh list and stats every minute to update online statuses
+                setInterval(() => {
+                    loadUsers();
+                    if (window.loadAdminStats) loadAdminStats();
+                }, 60000);
+            }
+        };
+
+        async function updateMaintenanceToggleUI() {
+            const btn = document.getElementById('toggle-maintenance');
+            if (!btn) return;
+            const res = await fetch(`${API_URL}/settings/maintenance-status`);
+            if (res.ok) {
+                const data = await res.json();
+                btn.textContent = data.enabled ? 'ON' : 'OFF';
+                btn.style.background = data.enabled ? '#ff4d4d' : 'var(--bg-color)';
+                btn.style.color = data.enabled ? 'white' : 'var(--text-color)';
+                btn.style.border = data.enabled ? 'none' : '1px solid var(--border-color)';
+                btn.dataset.enabled = data.enabled;
+            }
+        }
+
+        window.toggleMaintenanceMode = async function() {
+            const btn = document.getElementById('toggle-maintenance');
+            const newState = btn.dataset.enabled !== 'true';
+            const res = await fetch(`${API_URL}/admin/settings/maintenance-toggle`, {
+                method: 'PATCH',
+                headers: window.getAuthHeaders(),
+                body: JSON.stringify({ enabled: newState })
+            });
+            if (res.ok) {
+                showToast(newState ? 'Maintenance mode active' : 'Maintenance mode deactivated', 'info');
+                updateMaintenanceToggleUI();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || 'Failed to update maintenance mode', 'error');
+            }
+        };
+
+        async function updateFeedbackToggleUI() {
+            const btn = document.getElementById('toggle-feedback');
+            if (!btn) return;
+            const res = await fetch(`${API_URL}/settings/feedback-status`);
+            if (res.ok) {
+                const data = await res.json();
+                btn.textContent = data.enabled ? 'ON' : 'OFF';
+                btn.style.background = data.enabled ? '#4dabf7' : 'var(--bg-color)';
+                btn.style.color = data.enabled ? 'white' : 'var(--text-color)';
+                btn.style.border = data.enabled ? 'none' : '1px solid var(--border-color)';
+                btn.dataset.enabled = data.enabled;
+            }
+        }
+
+        window.toggleFeedbackMode = async function() {
+            const btn = document.getElementById('toggle-feedback');
+            const newState = btn.dataset.enabled !== 'true';
+            const res = await fetch(`${API_URL}/admin/settings/feedback-toggle`, {
+                method: 'PATCH',
+                headers: window.getAuthHeaders(),
+                body: JSON.stringify({ enabled: newState })
+            });
+            if (res.ok) {
+                showToast(newState ? 'Feedback portal enabled' : 'Feedback portal disabled', 'info');
+                updateFeedbackToggleUI();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || 'Failed to update feedback setting', 'error');
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="70" height="70" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Vintage Flash Attachment -->
+  <path d="M 28 32 V 12 H 48 V 32" stroke-width="3" />
+  <circle cx="38" cy="22" r="3" fill="white" stroke="none" />
+  <path d="M 20 12 L 14 6" stroke-width="2" />
+  
+  <!-- Rangefinder Body -->
+  <rect x="15" y="32" width="70" height="48" rx="3" stroke-width="5" />
+  <!-- Top Controls -->
+  <path d="M 62 32 V 20 H 78 V 32" stroke-width="3" />
+  <!-- Main Lens -->
+  <circle cx="50" cy="56" r="18" stroke-width="6" />
+  <circle cx="50" cy="56" r="7" stroke-width="2" />
+  <!-- Viewfinder window -->
+  <rect x="22" y="40" width="12" height="7" rx="1" stroke-width="2" />
+</svg>
